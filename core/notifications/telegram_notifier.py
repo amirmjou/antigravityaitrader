@@ -210,6 +210,7 @@ class TelegramNotifier:
                                 help_msg = (
                                     "👋 <b>Arbitrum Bot Command List:</b>\n\n"
                                     "🧠 <b>Intelligence & Explainability:</b>\n"
+                                    "• <code>/gemini</code> — On-demand Gemini AI cognitive market analysis\n"
                                     "• <code>/decision</code> — Why the bot is holding/swapping right now\n"
                                     "• <code>/accuracy</code> — Win rate %, profit factor, and metrics\n"
                                     "• <code>/plan</code> — Future roadmap & capital scaling strategy\n\n"

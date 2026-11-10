@@ -25,6 +25,7 @@ import numpy as np
 from eth_account import Account
 from web3 import Web3
 
+from core.ai.gemini_deliberator import GeminiDeliberator
 from core.analytics.accuracy_tracker import AccuracyTracker
 from core.notifications.telegram_notifier import TelegramNotifier
 
@@ -240,6 +241,7 @@ def run_continuous_trading_loop():
 
     telegram = TelegramNotifier()
     tracker = AccuracyTracker()
+    gemini = GeminiDeliberator()
 
     # Initial Balances & Daily Tracker
     native_eth, weth, usdc = get_balances(w3, acct.address)
@@ -312,6 +314,18 @@ def run_continuous_trading_loop():
     def handle_plan_cmd() -> str:
         return tracker.format_plan_report()
 
+    def handle_gemini_cmd() -> str:
+        cur_w3 = get_resilient_web3()
+        e, w, u = get_balances(cur_w3, acct.address)
+        holdings_str = f"{e:.6f} ETH (Gas), {w:.6f} WETH, ${u:.2f} USDC"
+        return gemini.format_market_intelligence(
+            spot_px=current_decision_state.get("spot_px", 3120.0),
+            short_ma=current_decision_state.get("short_ma", 3120.0),
+            long_ma=current_decision_state.get("long_ma", 3120.0),
+            rsi=current_decision_state.get("rsi", 50.0),
+            holdings_desc=holdings_str,
+        )
+
     def handle_ping_cmd() -> str:
         return "🏓 <b>Pong!</b> Trading bot is alive and running 24/7 on Google Cloud."
 
@@ -322,6 +336,8 @@ def run_continuous_trading_loop():
     telegram.register_command("/stats", handle_accuracy_cmd)
     telegram.register_command("/decision", handle_decision_cmd)
     telegram.register_command("/why", handle_decision_cmd)
+    telegram.register_command("/gemini", handle_gemini_cmd)
+    telegram.register_command("/ai", handle_gemini_cmd)
     telegram.register_command("/plan", handle_plan_cmd)
     telegram.register_command("/ping", handle_ping_cmd)
 
@@ -436,47 +452,72 @@ def run_continuous_trading_loop():
                 current_decision_state["rationale"] = "Monitoring Arbitrum liquidity pools and spot price momentum."
                 current_decision_state["next_trigger"] = "Waiting for capital allocation."
 
-            # Execution triggers
+            # Execution triggers with Gemini AI Deliberation Gate
             if len(price_history) >= 10:
-                # Bullish & we hold USDC -> Swap USDC into WETH
+                holdings_summary = f"{native_eth:.6f} ETH, {weth:.6f} WETH, ${usdc:.2f} USDC"
+                # Bullish & we hold USDC -> Evaluate BUY WETH
                 if is_bullish and usdc >= 0.50:
-                    rationale = f"Bullish momentum trigger: MA5 (${short_ma:.2f}) crossed MA10 (${long_ma:.2f}) with RSI={rsi:.1f}"
-                    logger.info(f"{rationale}. Swapping {usdc:.4f} USDC -> WETH...")
-                    swap_amount_wei = int(usdc * 1e6)
-                    res = execute_swap(
-                        w3, acct, USDC_ADDRESS, WETH_ADDRESS, swap_amount_wei,
-                        fee_tier=500, telegram=telegram, decision_rationale=rationale, conviction_pct=conviction
+                    ai_eval = gemini.deliberate(
+                        candidate_action="BUY WETH",
+                        spot_px=spot_px,
+                        short_ma=short_ma,
+                        long_ma=long_ma,
+                        rsi=rsi,
+                        holdings_desc=holdings_summary,
                     )
-                    if res:
-                        tx_hash, gas_paid, in_units, out_units, blk = res
-                        daily_trades_count += 1
-                        daily_gas_spent_usd += gas_paid
-                        tracker.record_swap(
-                            action="BUY WETH", token_in="USDC", token_out="WETH",
-                            amount_in=in_units, amount_out=out_units, price_usd=spot_px,
-                            gas_paid_usd=gas_paid, tx_hash=tx_hash, block_number=blk,
-                            decision_rationale=rationale, conviction_pct=conviction
+                    if ai_eval.get("approved") and ai_eval.get("action") == "BUY":
+                        rationale = f"AI Approved: {ai_eval.get('rationale')}"
+                        logger.info(f"{rationale}. Swapping {usdc:.4f} USDC -> WETH...")
+                        swap_amount_wei = int(usdc * 1e6)
+                        res = execute_swap(
+                            w3, acct, USDC_ADDRESS, WETH_ADDRESS, swap_amount_wei,
+                            fee_tier=500, telegram=telegram, decision_rationale=rationale,
+                            conviction_pct=ai_eval.get("confidence_pct", conviction)
                         )
+                        if res:
+                            tx_hash, gas_paid, in_units, out_units, blk = res
+                            daily_trades_count += 1
+                            daily_gas_spent_usd += gas_paid
+                            tracker.record_swap(
+                                action="BUY WETH", token_in="USDC", token_out="WETH",
+                                amount_in=in_units, amount_out=out_units, price_usd=spot_px,
+                                gas_paid_usd=gas_paid, tx_hash=tx_hash, block_number=blk,
+                                decision_rationale=rationale, conviction_pct=ai_eval.get("confidence_pct", conviction)
+                            )
+                    else:
+                        logger.info(f"Trade Vetoed by Deliberation: {ai_eval.get('rationale')}. Conserving gas & capital.")
 
-                # Bearish & we hold WETH -> Swap WETH into USDC to lock in profit / defend capital
+                # Bearish & we hold WETH -> Evaluate SELL WETH to USDC
                 elif is_bearish and weth >= 0.0003:
-                    rationale = f"Bearish momentum trigger: MA5 (${short_ma:.2f}) broke below MA10 (${long_ma:.2f}) with RSI={rsi:.1f}"
-                    logger.info(f"{rationale}. Swapping {weth:.6f} WETH -> USDC...")
-                    swap_amount_wei = int(weth * 1e18)
-                    res = execute_swap(
-                        w3, acct, WETH_ADDRESS, USDC_ADDRESS, swap_amount_wei,
-                        fee_tier=500, telegram=telegram, decision_rationale=rationale, conviction_pct=conviction
+                    ai_eval = gemini.deliberate(
+                        candidate_action="BUY USDC (SELL WETH)",
+                        spot_px=spot_px,
+                        short_ma=short_ma,
+                        long_ma=long_ma,
+                        rsi=rsi,
+                        holdings_desc=holdings_summary,
                     )
-                    if res:
-                        tx_hash, gas_paid, in_units, out_units, blk = res
-                        daily_trades_count += 1
-                        daily_gas_spent_usd += gas_paid
-                        tracker.record_swap(
-                            action="BUY USDC", token_in="WETH", token_out="USDC",
-                            amount_in=in_units, amount_out=out_units, price_usd=spot_px,
-                            gas_paid_usd=gas_paid, tx_hash=tx_hash, block_number=blk,
-                            decision_rationale=rationale, conviction_pct=conviction
+                    if ai_eval.get("approved") and ai_eval.get("action") in ["SELL", "BUY"]:
+                        rationale = f"AI Approved: {ai_eval.get('rationale')}"
+                        logger.info(f"{rationale}. Swapping {weth:.6f} WETH -> USDC...")
+                        swap_amount_wei = int(weth * 1e18)
+                        res = execute_swap(
+                            w3, acct, WETH_ADDRESS, USDC_ADDRESS, swap_amount_wei,
+                            fee_tier=500, telegram=telegram, decision_rationale=rationale,
+                            conviction_pct=ai_eval.get("confidence_pct", conviction)
                         )
+                        if res:
+                            tx_hash, gas_paid, in_units, out_units, blk = res
+                            daily_trades_count += 1
+                            daily_gas_spent_usd += gas_paid
+                            tracker.record_swap(
+                                action="BUY USDC", token_in="WETH", token_out="USDC",
+                                amount_in=in_units, amount_out=out_units, price_usd=spot_px,
+                                gas_paid_usd=gas_paid, tx_hash=tx_hash, block_number=blk,
+                                decision_rationale=rationale, conviction_pct=ai_eval.get("confidence_pct", conviction)
+                            )
+                    else:
+                        logger.info(f"Exit Vetoed by Deliberation: {ai_eval.get('rationale')}. Holding position.")
 
         except Exception as e:
             err_msg = str(e)
