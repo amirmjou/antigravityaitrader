@@ -431,16 +431,19 @@ def run_continuous_trading_loop():
                 spot_px = 3120.0
 
             price_history.append(spot_px)
-            if len(price_history) > 30:
+            # Fast-warmup: If starting fresh, seed buffer with initial spot price so trades evaluate immediately
+            if len(price_history) == 1:
+                price_history = [spot_px] * 10
+            elif len(price_history) > 30:
                 price_history.pop(0)
 
             # Indicator momentum & RSI evaluation
-            short_ma = float(np.mean(price_history[-5:])) if len(price_history) >= 5 else spot_px
-            long_ma = float(np.mean(price_history[-10:])) if len(price_history) >= 10 else spot_px
+            short_ma = float(np.mean(price_history[-5:]))
+            long_ma = float(np.mean(price_history[-10:]))
             rsi = calculate_rsi(price_history)
             ma_diff_pct = ((short_ma - long_ma) / long_ma * 100.0) if long_ma > 0 else 0.0
 
-            is_bullish = (short_ma > long_ma) and (rsi >= 40.0)
+            is_bullish = (short_ma >= long_ma) and (rsi >= 40.0)
             is_bearish = (short_ma < long_ma) and (rsi <= 60.0)
             conviction = float(min(96.0, max(52.0, 65.0 + abs(ma_diff_pct) * 35.0)))
 
@@ -454,97 +457,96 @@ def run_continuous_trading_loop():
             current_decision_state["regime"] = regime
             current_decision_state["conviction_pct"] = conviction
 
-            if weth >= 0.0003:
-                current_decision_state["action"] = "HOLDING_WETH (Target: Take Profit or Bear Flip)"
+            if weth >= 0.0001:
+                current_decision_state["action"] = f"HOLDING_WETH ({weth:.6f} WETH ~${weth * spot_px:.2f})"
                 current_decision_state["rationale"] = (
-                    f"Capital deployed in WETH (0.00050 WETH ~${weth * spot_px:.2f}). "
+                    f"Capital active in WETH ({weth:.6f} WETH). "
                     f"Fast MA (${short_ma:.2f}) vs Slow MA (${long_ma:.2f}), RSI={rsi:.1f}. "
-                    "Holding position while trend remains favorable."
+                    "Holding position or preparing for profit-taking."
                 )
                 current_decision_state["next_trigger"] = (
-                    f"Bearish crossover below Slow MA (${long_ma:.2f}) or RSI < 42 will trigger SELL to USDC."
+                    f"Bearish momentum cross below Slow MA (${long_ma:.2f}) will trigger SELL to USDC."
                 )
-            elif usdc >= 0.50:
-                current_decision_state["action"] = "HOLDING_USDC (Ready to Accumulate WETH)"
+            elif usdc >= 0.25:
+                current_decision_state["action"] = f"HOLDING_USDC (${usdc:.2f} USDC Reserve)"
                 current_decision_state["rationale"] = (
                     f"Capital preserved in USDC (${usdc:.2f} USDC). "
                     f"Fast MA (${short_ma:.2f}) vs Slow MA (${long_ma:.2f}), RSI={rsi:.1f}. "
                     "Waiting for confirmed bullish momentum cross to buy WETH."
                 )
                 current_decision_state["next_trigger"] = (
-                    f"Bullish crossover above Slow MA (${long_ma:.2f}) with RSI > 45 will trigger BUY into WETH."
+                    f"Bullish crossover above Slow MA (${long_ma:.2f}) with RSI > 40 will trigger BUY into WETH."
                 )
             else:
                 current_decision_state["action"] = "BALANCED_PORTFOLIO"
-                current_decision_state["rationale"] = "Monitoring Arbitrum liquidity pools and spot price momentum."
-                current_decision_state["next_trigger"] = "Waiting for capital allocation."
+                current_decision_state["rationale"] = f"Holdings: {weth:.6f} WETH and ${usdc:.2f} USDC. Monitoring Arbitrum One."
+                current_decision_state["next_trigger"] = "Awaiting trade setup or capital rebalance."
 
             # Execution triggers with Gemini AI Deliberation Gate
-            if len(price_history) >= 10:
-                holdings_summary = f"{native_eth:.6f} ETH, {weth:.6f} WETH, ${usdc:.2f} USDC"
-                # Bullish & we hold USDC -> Evaluate BUY WETH
-                if is_bullish and usdc >= 0.50:
-                    ai_eval = gemini.deliberate(
-                        candidate_action="BUY WETH",
-                        spot_px=spot_px,
-                        short_ma=short_ma,
-                        long_ma=long_ma,
-                        rsi=rsi,
-                        holdings_desc=holdings_summary,
+            holdings_summary = f"{native_eth:.6f} ETH, {weth:.6f} WETH, ${usdc:.2f} USDC"
+            # Bullish & we hold USDC -> Evaluate BUY WETH
+            if is_bullish and usdc >= 0.25:
+                ai_eval = gemini.deliberate(
+                    candidate_action="BUY WETH",
+                    spot_px=spot_px,
+                    short_ma=short_ma,
+                    long_ma=long_ma,
+                    rsi=rsi,
+                    holdings_desc=holdings_summary,
+                )
+                if ai_eval.get("approved") and ("BUY" in str(ai_eval.get("action", "")).upper()):
+                    rationale = f"AI Approved: {ai_eval.get('rationale')}"
+                    logger.info(f"{rationale}. Swapping {usdc:.4f} USDC -> WETH...")
+                    swap_amount_wei = int(usdc * 1e6)
+                    res = execute_swap(
+                        w3, acct, USDC_ADDRESS, WETH_ADDRESS, swap_amount_wei,
+                        fee_tier=500, telegram=telegram, decision_rationale=rationale,
+                        conviction_pct=ai_eval.get("confidence_pct", conviction)
                     )
-                    if ai_eval.get("approved") and ai_eval.get("action") == "BUY":
-                        rationale = f"AI Approved: {ai_eval.get('rationale')}"
-                        logger.info(f"{rationale}. Swapping {usdc:.4f} USDC -> WETH...")
-                        swap_amount_wei = int(usdc * 1e6)
-                        res = execute_swap(
-                            w3, acct, USDC_ADDRESS, WETH_ADDRESS, swap_amount_wei,
-                            fee_tier=500, telegram=telegram, decision_rationale=rationale,
-                            conviction_pct=ai_eval.get("confidence_pct", conviction)
+                    if res:
+                        tx_hash, gas_paid, in_units, out_units, blk = res
+                        daily_trades_count += 1
+                        daily_gas_spent_usd += gas_paid
+                        tracker.record_swap(
+                            action="BUY WETH", token_in="USDC", token_out="WETH",
+                            amount_in=in_units, amount_out=out_units, price_usd=spot_px,
+                            gas_paid_usd=gas_paid, tx_hash=tx_hash, block_number=blk,
+                            decision_rationale=rationale, conviction_pct=ai_eval.get("confidence_pct", conviction)
                         )
-                        if res:
-                            tx_hash, gas_paid, in_units, out_units, blk = res
-                            daily_trades_count += 1
-                            daily_gas_spent_usd += gas_paid
-                            tracker.record_swap(
-                                action="BUY WETH", token_in="USDC", token_out="WETH",
-                                amount_in=in_units, amount_out=out_units, price_usd=spot_px,
-                                gas_paid_usd=gas_paid, tx_hash=tx_hash, block_number=blk,
-                                decision_rationale=rationale, conviction_pct=ai_eval.get("confidence_pct", conviction)
-                            )
-                    else:
-                        logger.info(f"Trade Vetoed by Deliberation: {ai_eval.get('rationale')}. Conserving gas & capital.")
+                else:
+                    logger.info(f"Trade Vetoed by Deliberation: {ai_eval.get('rationale')}. Conserving gas & capital.")
 
-                # Bearish & we hold WETH -> Evaluate SELL WETH to USDC
-                elif is_bearish and weth >= 0.0003:
-                    ai_eval = gemini.deliberate(
-                        candidate_action="BUY USDC (SELL WETH)",
-                        spot_px=spot_px,
-                        short_ma=short_ma,
-                        long_ma=long_ma,
-                        rsi=rsi,
-                        holdings_desc=holdings_summary,
+            # Bearish & we hold WETH -> Evaluate SELL WETH to USDC
+            elif is_bearish and weth >= 0.0001:
+                ai_eval = gemini.deliberate(
+                    candidate_action="BUY USDC (SELL WETH)",
+                    spot_px=spot_px,
+                    short_ma=short_ma,
+                    long_ma=long_ma,
+                    rsi=rsi,
+                    holdings_desc=holdings_summary,
+                )
+                if ai_eval.get("approved") and ("SELL" in str(ai_eval.get("action", "")).upper() or "USDC" in str(ai_eval.get("action", "")).upper()):
+                    rationale = f"AI Approved: {ai_eval.get('rationale')}"
+                    logger.info(f"{rationale}. Swapping {weth:.6f} WETH -> USDC...")
+                    swap_amount_wei = int(weth * 1e18)
+                    res = execute_swap(
+                        w3, acct, WETH_ADDRESS, USDC_ADDRESS, swap_amount_wei,
+                        fee_tier=500, telegram=telegram, decision_rationale=rationale,
+                        conviction_pct=ai_eval.get("confidence_pct", conviction)
                     )
-                    if ai_eval.get("approved") and ai_eval.get("action") in ["SELL", "BUY"]:
-                        rationale = f"AI Approved: {ai_eval.get('rationale')}"
-                        logger.info(f"{rationale}. Swapping {weth:.6f} WETH -> USDC...")
-                        swap_amount_wei = int(weth * 1e18)
-                        res = execute_swap(
-                            w3, acct, WETH_ADDRESS, USDC_ADDRESS, swap_amount_wei,
-                            fee_tier=500, telegram=telegram, decision_rationale=rationale,
-                            conviction_pct=ai_eval.get("confidence_pct", conviction)
+                    if res:
+                        tx_hash, gas_paid, in_units, out_units, blk = res
+                        daily_trades_count += 1
+                        daily_gas_spent_usd += gas_paid
+                        tracker.record_swap(
+                            action="BUY USDC", token_in="WETH", token_out="USDC",
+                            amount_in=in_units, amount_out=out_units, price_usd=spot_px,
+                            gas_paid_usd=gas_paid, tx_hash=tx_hash, block_number=blk,
+                            decision_rationale=rationale, conviction_pct=ai_eval.get("confidence_pct", conviction)
                         )
-                        if res:
-                            tx_hash, gas_paid, in_units, out_units, blk = res
-                            daily_trades_count += 1
-                            daily_gas_spent_usd += gas_paid
-                            tracker.record_swap(
-                                action="BUY USDC", token_in="WETH", token_out="USDC",
-                                amount_in=in_units, amount_out=out_units, price_usd=spot_px,
-                                gas_paid_usd=gas_paid, tx_hash=tx_hash, block_number=blk,
-                                decision_rationale=rationale, conviction_pct=ai_eval.get("confidence_pct", conviction)
-                            )
-                    else:
-                        logger.info(f"Exit Vetoed by Deliberation: {ai_eval.get('rationale')}. Holding position.")
+                else:
+                    logger.info(f"Exit Vetoed by Deliberation: {ai_eval.get('rationale')}. Holding position.")
 
         except Exception as e:
             err_msg = str(e)

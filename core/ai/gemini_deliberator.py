@@ -71,17 +71,18 @@ class GeminiDeliberator:
         if not self.is_configured:
             # Fallback to quantitative heuristic if Gemini API key not yet supplied
             ma_diff_pct = ((short_ma - long_ma) / long_ma * 100.0) if long_ma > 0 else 0.0
-            is_strong = abs(ma_diff_pct) >= 0.04
+            is_strong = abs(ma_diff_pct) >= 0.03
             confidence = min(92.0, max(55.0, 65.0 + abs(ma_diff_pct) * 40.0))
+            normalized_act = "BUY" if ("BUY" in candidate_action and "USDC" not in candidate_action) else ("SELL" if ("SELL" in candidate_action or "USDC" in candidate_action) else "HOLD")
             return {
                 "approved": is_strong,
-                "action": candidate_action if is_strong else "HOLD",
+                "action": normalized_act if is_strong else "HOLD",
                 "confidence_pct": round(confidence, 1),
                 "regime": "BULLISH_EXPANSION" if short_ma > long_ma else "BEARISH_PULLBACK",
                 "risk_level": "MODERATE",
                 "rationale": (
                     f"Heuristic Consensus: MA Spread {ma_diff_pct:+.2f}%, RSI={rsi:.1f}. "
-                    f"Signal is {'convincing' if is_strong else 'weak/choppy'}. (Add GEMINI_API_KEY for neural deliberation)."
+                    f"Signal is {'convincing' if is_strong else 'weak/choppy'}."
                 ),
                 "source": "heuristic_fallback",
             }
@@ -143,9 +144,10 @@ class GeminiDeliberator:
             if e.code == 402:
                 err_msg = "Google Prepayment Credits Depleted (HTTP 402)"
             logger.warning(f"Gemini API error ({err_msg}). Reverting to rule engine.")
+            normalized_act = "BUY" if ("BUY" in candidate_action and "USDC" not in candidate_action) else ("SELL" if ("SELL" in candidate_action or "USDC" in candidate_action) else "HOLD")
             return {
                 "approved": True,
-                "action": candidate_action,
+                "action": normalized_act,
                 "confidence_pct": 72.0,
                 "regime": "NEUTRAL",
                 "risk_level": "MODERATE",
@@ -154,9 +156,10 @@ class GeminiDeliberator:
             }
         except Exception as e:
             logger.warning(f"Gemini API request failed ({e}). Reverting to rule engine.")
+            normalized_act = "BUY" if ("BUY" in candidate_action and "USDC" not in candidate_action) else ("SELL" if ("SELL" in candidate_action or "USDC" in candidate_action) else "HOLD")
             return {
                 "approved": True,
-                "action": candidate_action,
+                "action": normalized_act,
                 "confidence_pct": 72.0,
                 "regime": "NEUTRAL",
                 "risk_level": "MODERATE",
