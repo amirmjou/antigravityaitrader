@@ -1,0 +1,2 @@
+$proc = Start-Process -FilePath "python" -ArgumentList "run_live_metamask_terminal.py" -WorkingDirectory "c:\Users\AmirM\Documents\Agentic trading" -RedirectStandardOutput "c:\Users\AmirM\Documents\Agentic trading\.agents\teamwork\teamwork_worker_m6_launcher\daemon.log" -RedirectStandardError "c:\Users\AmirM\Documents\Agentic trading\.agents\teamwork\teamwork_worker_m6_launcher\daemon_err.log" -PassThru
+Write-Output "LAUNCHED_PID=$($proc.Id)"

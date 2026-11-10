@@ -1,0 +1,621 @@
+/* ==========================================================================
+   Antigravity Institutional Cryptocurrency Trading Terminal
+   Dark Alpine Institutional Theme (100% Self-Contained, WCAG AAA Contrast)
+   ========================================================================== */
+
+:root {
+    --bg-base: #0b0e14;
+    --bg-surface: #121820;
+    --bg-surface-elevated: #16202c;
+    --bg-panel-header: #151d27;
+    --border-subtle: #1f2937;
+    --border-prominent: #2d3748;
+
+    --text-primary: #f0f4f8;
+    --text-secondary: #94a3b8;
+    --text-muted: #64748b;
+
+    --bull-emerald: #00c076;
+    --bull-emerald-bg: rgba(0, 192, 118, 0.12);
+    --bull-emerald-border: rgba(0, 192, 118, 0.35);
+
+    --bear-crimson: #ff4d4f;
+    --bear-crimson-bg: rgba(255, 77, 79, 0.12);
+    --bear-crimson-border: rgba(255, 77, 79, 0.35);
+
+    --accent-blue: #3b82f6;
+    --accent-blue-hover: #2563eb;
+    --accent-amber: #f5a623;
+    --accent-amber-bg: rgba(245, 166, 35, 0.12);
+
+    --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+}
+
+* {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+}
+
+body {
+    background-color: var(--bg-base);
+    color: var(--text-primary);
+    font-family: var(--font-sans);
+    font-size: 13px;
+    line-height: 1.45;
+    overflow-x: hidden;
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+}
+
+/* --------------------------------------------------------------------------
+   Masthead & Top Bar
+   -------------------------------------------------------------------------- */
+.terminal-header {
+    height: 48px;
+    background-color: var(--bg-panel-header);
+    border-bottom: 1px solid var(--border-subtle);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 16px;
+    flex-shrink: 0;
+}
+
+.brand-section {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.brand-logo {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 26px;
+    height: 26px;
+    background: linear-gradient(135deg, #3b82f6 0%, #00c076 100%);
+    border-radius: 6px;
+    font-weight: 800;
+    font-size: 14px;
+    color: #ffffff;
+}
+
+.brand-title {
+    font-weight: 700;
+    font-size: 14px;
+    letter-spacing: 0.5px;
+    color: var(--text-primary);
+    text-transform: uppercase;
+}
+
+.brand-badge {
+    background-color: var(--border-prominent);
+    color: var(--text-secondary);
+    font-size: 10px;
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-family: var(--font-mono);
+}
+
+.ticker-strip {
+    display: flex;
+    align-items: center;
+    gap: 24px;
+    font-family: var(--font-mono);
+}
+
+.ticker-item {
+    display: flex;
+    flex-direction: column;
+}
+
+.ticker-label {
+    font-size: 10px;
+    color: var(--text-muted);
+    text-transform: uppercase;
+}
+
+.ticker-val {
+    font-size: 13px;
+    font-weight: 600;
+}
+
+.ticker-val.up { color: var(--bull-emerald); }
+.ticker-val.down { color: var(--bear-crimson); }
+
+.status-section {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+}
+
+.badge-indicator {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 11px;
+    font-family: var(--font-mono);
+    color: var(--text-secondary);
+}
+
+.status-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background-color: var(--bear-crimson);
+}
+
+.status-dot.active {
+    background-color: var(--bull-emerald);
+    box-shadow: 0 0 6px var(--bull-emerald);
+}
+
+.btn-wallet {
+    background-color: var(--bg-surface-elevated);
+    border: 1px solid var(--accent-blue);
+    color: var(--accent-blue);
+    padding: 6px 12px;
+    border-radius: 4px;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.btn-wallet:hover {
+    background-color: var(--accent-blue);
+    color: #ffffff;
+}
+
+/* --------------------------------------------------------------------------
+   3-Column Asymmetric Layout (28% : 44% : 28%)
+   -------------------------------------------------------------------------- */
+.terminal-layout {
+    display: grid;
+    grid-template-columns: 28% 44% 28%;
+    flex: 1;
+    overflow: hidden;
+    background-color: var(--bg-base);
+}
+
+.column {
+    display: flex;
+    flex-direction: column;
+    overflow-y: auto;
+    border-right: 1px solid var(--border-subtle);
+}
+
+.column:last-child {
+    border-right: none;
+}
+
+/* --------------------------------------------------------------------------
+   Common Panel Styles
+   -------------------------------------------------------------------------- */
+.panel {
+    background-color: var(--bg-surface);
+    border-bottom: 1px solid var(--border-subtle);
+    display: flex;
+    flex-direction: column;
+}
+
+.panel-header {
+    background-color: var(--bg-panel-header);
+    border-bottom: 1px solid var(--border-subtle);
+    padding: 8px 12px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.panel-title {
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.6px;
+    color: var(--text-secondary);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.panel-body {
+    padding: 12px;
+    flex: 1;
+}
+
+/* --------------------------------------------------------------------------
+   Column 1: AI Debate Arena & Reasoning Stream
+   -------------------------------------------------------------------------- */
+.debate-arena-card {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+    margin-bottom: 12px;
+}
+
+.arena-card {
+    border-radius: 6px;
+    padding: 10px;
+    font-size: 11px;
+}
+
+.arena-card.bull {
+    background-color: var(--bull-emerald-bg);
+    border: 1px solid var(--bull-emerald-border);
+}
+
+.arena-card.bear {
+    background-color: var(--bear-crimson-bg);
+    border: 1px solid var(--bear-crimson-border);
+}
+
+.arena-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    font-weight: 700;
+    margin-bottom: 6px;
+}
+
+.bull-title { color: var(--bull-emerald); }
+.bear-title { color: var(--bear-crimson); }
+
+.arena-quote {
+    color: var(--text-primary);
+    font-style: italic;
+    line-height: 1.4;
+    word-break: break-word;
+}
+
+.reasoning-feed {
+    height: 320px;
+    overflow-y: auto;
+    font-family: var(--font-mono);
+    font-size: 11px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    background-color: #0d1219;
+    border: 1px solid var(--border-subtle);
+    border-radius: 6px;
+    padding: 8px;
+}
+
+.thought-entry {
+    padding: 6px 8px;
+    border-left: 2px solid var(--border-prominent);
+    background-color: rgba(255, 255, 255, 0.02);
+    border-radius: 0 4px 4px 0;
+}
+
+.thought-entry.bull { border-left-color: var(--bull-emerald); }
+.thought-entry.bear { border-left-color: var(--bear-crimson); }
+.thought-entry.tool { border-left-color: var(--accent-blue); }
+.thought-entry.trader { border-left-color: var(--accent-amber); }
+
+.thought-meta {
+    font-size: 10px;
+    color: var(--text-muted);
+    margin-bottom: 3px;
+    display: flex;
+    justify-content: space-between;
+}
+
+.thought-text {
+    color: var(--text-primary);
+    word-break: break-word;
+}
+
+.proposal-card {
+    background: linear-gradient(180deg, rgba(59, 130, 246, 0.08) 0%, rgba(18, 24, 32, 1) 100%);
+    border: 1px solid rgba(59, 130, 246, 0.3);
+    border-radius: 6px;
+    padding: 12px;
+}
+
+.proposal-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+    font-family: var(--font-mono);
+    font-size: 12px;
+    margin-top: 8px;
+}
+
+.proposal-item {
+    display: flex;
+    flex-direction: column;
+}
+
+.proposal-label {
+    font-size: 10px;
+    color: var(--text-muted);
+    text-transform: uppercase;
+}
+
+.proposal-val {
+    font-weight: 600;
+    color: var(--text-primary);
+}
+
+/* --------------------------------------------------------------------------
+   Column 2: Candlestick Chart & Technical Indicators
+   -------------------------------------------------------------------------- */
+.chart-controls {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.btn-ctrl {
+    background-color: var(--bg-surface-elevated);
+    border: 1px solid var(--border-prominent);
+    color: var(--text-secondary);
+    padding: 3px 8px;
+    border-radius: 4px;
+    font-size: 11px;
+    cursor: pointer;
+}
+
+.btn-ctrl.active {
+    background-color: var(--accent-blue);
+    border-color: var(--accent-blue);
+    color: #ffffff;
+}
+
+.chart-viewport {
+    position: relative;
+    width: 100%;
+    flex: 1;
+    min-height: 480px;
+    background-color: #0d1219;
+}
+
+#candleChart {
+    width: 100%;
+    height: 100%;
+    display: block;
+}
+
+.chart-legend {
+    position: absolute;
+    top: 8px;
+    left: 12px;
+    display: flex;
+    gap: 12px;
+    font-family: var(--font-mono);
+    font-size: 11px;
+    pointer-events: none;
+    background-color: rgba(13, 18, 25, 0.75);
+    padding: 4px 8px;
+    border-radius: 4px;
+}
+
+.legend-item { display: flex; align-items: center; gap: 4px; }
+.legend-dot.ema20 { color: #3b82f6; }
+.legend-dot.ema50 { color: #f5a623; }
+.legend-dot.rsi14 { color: #a855f7; }
+
+/* --------------------------------------------------------------------------
+   Column 3: L2 Depth, Guardrails, Frontier Mode Approval
+   -------------------------------------------------------------------------- */
+.order-book-table {
+    width: 100%;
+    font-family: var(--font-mono);
+    font-size: 11px;
+    border-collapse: collapse;
+}
+
+.order-book-table th {
+    text-align: right;
+    color: var(--text-muted);
+    font-size: 10px;
+    padding: 4px 6px;
+    font-weight: 400;
+}
+
+.order-book-table th:first-child { text-align: left; }
+
+.order-book-table td {
+    padding: 3px 6px;
+    text-align: right;
+    position: relative;
+}
+
+.order-book-table td:first-child { text-align: left; }
+
+.ask-row td:first-child { color: var(--bear-crimson); }
+.bid-row td:first-child { color: var(--bull-emerald); }
+
+.depth-bar {
+    position: absolute;
+    right: 0;
+    top: 0;
+    bottom: 0;
+    opacity: 0.18;
+    z-index: 0;
+    pointer-events: none;
+}
+
+.depth-bar.ask { background-color: var(--bear-crimson); }
+.depth-bar.bid { background-color: var(--bull-emerald); }
+
+.spread-row {
+    background-color: var(--bg-surface-elevated);
+    border-top: 1px solid var(--border-subtle);
+    border-bottom: 1px solid var(--border-subtle);
+    font-size: 10px;
+    padding: 4px 6px;
+    color: var(--text-muted);
+    display: flex;
+    justify-content: space-between;
+}
+
+.imbalance-meter {
+    margin-top: 8px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.meter-track {
+    height: 6px;
+    background-color: var(--bear-crimson);
+    border-radius: 3px;
+    position: relative;
+    overflow: hidden;
+}
+
+.meter-fill {
+    height: 100%;
+    background-color: var(--bull-emerald);
+    transition: width 0.3s ease;
+}
+
+.meter-labels {
+    display: flex;
+    justify-content: space-between;
+    font-size: 10px;
+    font-family: var(--font-mono);
+    color: var(--text-muted);
+}
+
+/* 6-Layer Guardrail Shield */
+.guardrail-list {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.guardrail-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 6px 8px;
+    background-color: var(--bg-surface-elevated);
+    border: 1px solid var(--border-subtle);
+    border-radius: 4px;
+    font-size: 11px;
+}
+
+.guardrail-item.passed {
+    border-left: 3px solid var(--bull-emerald);
+}
+
+.guardrail-item.failed {
+    border-left: 3px solid var(--bear-crimson);
+    background-color: var(--bear-crimson-bg);
+}
+
+.guardrail-name {
+    font-weight: 500;
+}
+
+.guardrail-status-pill {
+    font-size: 10px;
+    font-family: var(--font-mono);
+    padding: 1px 6px;
+    border-radius: 3px;
+    text-transform: uppercase;
+}
+
+.guardrail-status-pill.passed {
+    background-color: var(--bull-emerald-bg);
+    color: var(--bull-emerald);
+}
+
+.guardrail-status-pill.failed {
+    background-color: var(--bear-crimson-bg);
+    color: var(--bear-crimson);
+}
+
+/* Frontier Mode Trade Approval */
+.frontier-approval-card {
+    background-color: var(--bg-surface-elevated);
+    border: 1px solid var(--accent-blue);
+    border-radius: 6px;
+    padding: 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.btn-confirm-swap {
+    background: linear-gradient(135deg, #00c076 0%, #009858 100%);
+    color: #ffffff;
+    font-weight: 700;
+    font-size: 13px;
+    padding: 10px;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    box-shadow: 0 2px 8px rgba(0, 192, 118, 0.3);
+    transition: all 0.2s ease;
+    text-align: center;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.btn-confirm-swap:hover {
+    background: linear-gradient(135deg, #05d685 0%, #00a862 100%);
+    box-shadow: 0 4px 12px rgba(0, 192, 118, 0.45);
+}
+
+.btn-confirm-swap:disabled {
+    background: #374151;
+    color: #9ca3af;
+    cursor: not-allowed;
+    box-shadow: none;
+}
+
+/* Modal Overlay for On-Chain Execution */
+.modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: rgba(0, 0, 0, 0.75);
+    display: none;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+}
+
+.modal-overlay.active {
+    display: flex;
+}
+
+.modal-content {
+    background-color: var(--bg-surface);
+    border: 1px solid var(--border-prominent);
+    border-radius: 8px;
+    width: 440px;
+    max-width: 90vw;
+    padding: 20px;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.6);
+}
+
+/* Responsive adjustments */
+@media (max-width: 1200px) {
+    .terminal-layout {
+        grid-template-columns: 32% 68%;
+    }
+    .column:last-child {
+        grid-column: span 2;
+    }
+}
+
+@media (max-width: 768px) {
+    .terminal-layout {
+        grid-template-columns: 1fr;
+    }
+    .column {
+        border-right: none;
+        border-bottom: 1px solid var(--border-subtle);
+    }
+}

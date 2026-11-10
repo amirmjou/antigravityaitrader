@@ -1,0 +1,367 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Antigravity Agentic Trading Terminal</title>
+    <link rel="stylesheet" href="/static/css/dashboard.css">
+</head>
+<body class="theme-dark">
+
+    <!-- Masthead Navigation -->
+    <header class="terminal-header">
+        <div class="brand-section">
+            <div class="brand-logo">AG</div>
+            <span class="brand-title">Antigravity Trading Terminal</span>
+            <span class="brand-badge">Institutional v1.0.0</span>
+        </div>
+
+        <div class="ticker-strip">
+            <div class="ticker-item">
+                <span class="ticker-label">Symbol</span>
+                <span class="ticker-val" id="btc-symbol">BTC/USDT</span>
+            </div>
+            <div class="ticker-item">
+                <span class="ticker-label">Price</span>
+                <span class="ticker-val up" id="btc-price">$88,500.00</span>
+            </div>
+            <div class="ticker-item">
+                <span class="ticker-label">24h High</span>
+                <span class="ticker-val" id="btc-high">$89,200.00</span>
+            </div>
+            <div class="ticker-item">
+                <span class="ticker-label">24h Low</span>
+                <span class="ticker-val" id="btc-low">$86,400.00</span>
+            </div>
+            <div class="ticker-item">
+                <span class="ticker-label">24h Vol</span>
+                <span class="ticker-val" id="btc-vol">1,420.5 BTC</span>
+            </div>
+        </div>
+
+        <div class="status-section">
+            <div class="badge-indicator">
+                <div class="status-dot active" id="sse-status-dot"></div>
+                <span>SSE Stream</span>
+            </div>
+            <div class="badge-indicator">
+                <div class="status-dot active" id="ws-status-dot"></div>
+                <span>WS Telemetry</span>
+            </div>
+            <button class="btn-wallet" id="btn-connect-wallet">Connect Wallet</button>
+        </div>
+    </header>
+
+    <!-- Main 3-Column Asymmetric Terminal Layout (28% : 44% : 28%) -->
+    <main class="terminal-layout">
+
+        <!-- COLUMN 1: AGENT DELIBERATION & DEBATE ARENA (28%) -->
+        <section class="column col-1">
+            
+            <!-- AI Debate Arena -->
+            <div class="panel">
+                <div class="panel-header">
+                    <span class="panel-title">AI Debate Arena (Bull vs Bear)</span>
+                    <span class="brand-badge">Round 1</span>
+                </div>
+                <div class="panel-body">
+                    <div class="debate-arena-card">
+                        <div class="arena-card bull">
+                            <div class="arena-header">
+                                <span class="bull-title">Bull Researcher</span>
+                                <span class="brand-badge bull-badge">Conviction: 85%</span>
+                            </div>
+                            <div class="arena-quote" id="bull-quote">
+                                "Evaluating institutional hash rate momentum. Spot ETF net inflows remain strong (+$420M/day)."
+                            </div>
+                        </div>
+                        <div class="arena-card bear">
+                            <div class="arena-header">
+                                <span class="bear-title">Bear Researcher</span>
+                                <span class="brand-badge bear-badge">Conviction: 68%</span>
+                            </div>
+                            <div class="arena-quote" id="bear-quote">
+                                "Turn 1: Overbought RSI divergence at local key resistance. Macro liquidity contracting."
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Live Multi-Agent Reasoning Feed -->
+            <div class="panel" style="flex: 1;">
+                <div class="panel-header">
+                    <span class="panel-title">Live Reasoning & Deliberation Feed</span>
+                    <span class="brand-badge">Real-time SSE</span>
+                </div>
+                <div class="panel-body" style="display: flex; flex-direction: column;">
+                    <div class="reasoning-feed" id="reasoning-feed">
+                        <div class="thought-entry bull">
+                            <div class="thought-meta">
+                                <span>Bull Researcher</span>
+                                <span>19:40:00</span>
+                            </div>
+                            <div class="thought-text">
+                                Evaluating institutional hash rate momentum and spot ETF inflows...
+                            </div>
+                        </div>
+                        <div class="thought-entry tool">
+                            <div class="thought-meta">
+                                <span>Market Analyst</span>
+                                <span>19:40:02</span>
+                            </div>
+                            <div class="thought-text">
+                                Tool Call: fetch_ticker(BTC/USDT) &rarr; Price: $88,500.00
+                            </div>
+                        </div>
+                        <div class="thought-entry bear">
+                            <div class="thought-meta">
+                                <span>Bear Researcher</span>
+                                <span>19:40:04</span>
+                            </div>
+                            <div class="thought-text">
+                                Identifying 4h RSI bearish divergence. Recommending defensive hedging.
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Trader Proposal Card -->
+            <div class="panel">
+                <div class="panel-header">
+                    <span class="panel-title">Active Trader Proposal</span>
+                    <span class="brand-badge">Synthesized</span>
+                </div>
+                <div class="panel-body">
+                    <div class="proposal-card" id="proposal-card">
+                        <div style="display: flex; justify-content: space-between; align-items: center;">
+                            <span style="font-weight: 700; color: var(--accent-blue);">PROPOSAL SIGNAL</span>
+                            <span class="brand-badge" id="prop-action" style="background-color: var(--bull-emerald-bg); color: var(--bull-emerald);">BUY</span>
+                        </div>
+                        <div class="proposal-grid">
+                            <div class="proposal-item">
+                                <span class="proposal-label">Entry Target</span>
+                                <span class="proposal-val" id="prop-price">$88,500.00</span>
+                            </div>
+                            <div class="proposal-item">
+                                <span class="proposal-label">Stop Loss</span>
+                                <span class="proposal-val" id="prop-stop" style="color: var(--bear-crimson);">$85,845.00</span>
+                            </div>
+                            <div class="proposal-item">
+                                <span class="proposal-label">Risk Sizing</span>
+                                <span class="proposal-val" id="prop-size">0.00226 BTC ($200.00)</span>
+                            </div>
+                            <div class="proposal-item">
+                                <span class="proposal-label">Jev Decision</span>
+                                <span class="proposal-val" style="color: var(--bull-emerald);">APPROVE (0.85)</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+        </section>
+
+        <!-- COLUMN 2: HIGH-PERFORMANCE CANDLESTICK CHART (44%) -->
+        <section class="column col-2" style="background-color: #0d1219;">
+            <div class="panel" style="background-color: transparent; border-bottom: 1px solid var(--border-subtle);">
+                <div class="panel-header">
+                    <div style="display: flex; align-items: center; gap: 12px;">
+                        <span class="panel-title">BTC/USDT &mdash; Spot Market Chart</span>
+                        <div class="chart-controls">
+                            <button class="btn-ctrl active">1h</button>
+                            <button class="btn-ctrl">4h</button>
+                            <button class="btn-ctrl">1d</button>
+                        </div>
+                    </div>
+                    <div style="display: flex; align-items: center; gap: 8px;">
+                        <span class="brand-badge" style="color: #3b82f6;">EMA 20</span>
+                        <span class="brand-badge" style="color: #f5a623;">EMA 50</span>
+                        <span class="brand-badge" style="color: #a855f7;">RSI 14</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Candlestick Canvas Viewport -->
+            <div class="chart-viewport" id="chart-pane" style="flex: 1; min-height: 280px;">
+                <canvas id="candleChart"></canvas>
+                <div class="chart-legend">
+                    <div class="legend-item"><span class="legend-dot ema20">&#9679;</span> EMA 20: <span id="ind-ema20">$87,500.00</span></div>
+                    <div class="legend-item"><span class="legend-dot ema50">&#9679;</span> EMA 50: <span id="ind-ema50">$86,800.00</span></div>
+                    <div class="legend-item"><span class="legend-dot rsi14">&#9679;</span> RSI 14: <span id="ind-rsi14">62.4</span></div>
+                    <div class="legend-item">ATR 14: <span id="ind-atr14">$1,250.00</span></div>
+                </div>
+            </div>
+
+            <!-- AI $40 -> 100 Trades Live Performance Ledger -->
+            <div class="panel" id="ai-performance-pane" style="border-top: 1px solid var(--border-subtle); max-height: 270px; display: flex; flex-direction: column;">
+                <div class="panel-header">
+                    <span class="panel-title">AI Performance Challenge ($40.00 &rarr; 100 Trades)</span>
+                    <span class="brand-badge" id="perf-badge" style="color: var(--bull-emerald);">+$6.96 (+17.40%) | 100/100 Filled</span>
+                </div>
+                <div class="panel-body" style="overflow-y: auto; padding: 8px 12px;">
+                    <div style="display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; margin-bottom: 8px; font-family: var(--font-mono); font-size: 11px;">
+                        <div><span style="color: var(--text-muted); display: block;">Start Capital</span><strong id="perf-start">$40.00</strong></div>
+                        <div><span style="color: var(--text-muted); display: block;">Final Equity</span><strong id="perf-final" style="color: var(--bull-emerald);">$46.96</strong></div>
+                        <div><span style="color: var(--text-muted); display: block;">Net Profit</span><strong id="perf-gain" style="color: var(--bull-emerald);">+$6.96 (+17.40%)</strong></div>
+                        <div><span style="color: var(--text-muted); display: block;">Win Rate / Sharpe</span><strong id="perf-winrate">54.0% / 1.50</strong></div>
+                        <div><span style="color: var(--text-muted); display: block;">Max DD / Fees</span><strong id="perf-dd">6.18% / $1.73</strong></div>
+                    </div>
+                    <table class="order-book-table" style="font-size: 11px;">
+                        <thead>
+                            <tr>
+                                <th>#</th>
+                                <th>Asset</th>
+                                <th>Side</th>
+                                <th>Price ($)</th>
+                                <th>Size ($)</th>
+                                <th>PnL ($)</th>
+                                <th>Equity ($)</th>
+                                <th>AI Signal</th>
+                            </tr>
+                        </thead>
+                        <tbody id="perf-trades-tbody"></tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
+
+        <!-- COLUMN 3: ORDER BOOK, GUARDRAILS, FRONTIER MODE (28%) -->
+        <section class="column col-3">
+
+            <!-- L2 Order Book Depth -->
+            <div class="panel" id="orderbook-pane">
+                <div class="panel-header">
+                    <span class="panel-title">L2 Order Book Depth</span>
+                    <span class="brand-badge">0.01% Tick</span>
+                </div>
+                <div class="panel-body">
+                    <table class="order-book-table">
+                        <thead>
+                            <tr>
+                                <th>Price (USDT)</th>
+                                <th>Size (BTC)</th>
+                                <th>Total ($)</th>
+                            </tr>
+                        </thead>
+                        <tbody id="orderbook-asks">
+                            <tr class="ask-row"><td>88,530.00</td><td>3.00</td><td><div class="depth-bar ask" style="width: 100%"></div>265,590</td></tr>
+                            <tr class="ask-row"><td>88,520.00</td><td>1.50</td><td><div class="depth-bar ask" style="width: 50%"></div>132,780</td></tr>
+                            <tr class="ask-row"><td>88,510.00</td><td>0.80</td><td><div class="depth-bar ask" style="width: 27%"></div>70,808</td></tr>
+                        </tbody>
+                    </table>
+
+                    <div class="spread-row">
+                        <span>Spread</span>
+                        <span id="orderbook-spread" style="font-family: var(--font-mono); color: var(--text-primary); font-weight: 600;">$10.00</span>
+                    </div>
+
+                    <table class="order-book-table">
+                        <tbody id="orderbook-bids">
+                            <tr class="bid-row"><td>88,500.00</td><td>1.20</td><td><div class="depth-bar bid" style="width: 40%"></div>106,200</td></tr>
+                            <tr class="bid-row"><td>88,490.00</td><td>2.50</td><td><div class="depth-bar bid" style="width: 83%"></div>221,225</td></tr>
+                            <tr class="bid-row"><td>88,480.00</td><td>5.00</td><td><div class="depth-bar bid" style="width: 100%"></div>442,400</td></tr>
+                        </tbody>
+                    </table>
+
+                    <!-- Depth Imbalance Meter -->
+                    <div class="imbalance-meter">
+                        <div class="meter-track">
+                            <div class="meter-fill" id="imbalance-fill" style="width: 75%;"></div>
+                        </div>
+                        <div class="meter-labels">
+                            <span style="color: var(--bear-crimson);">Asks Pressure</span>
+                            <span id="imbalance-text" style="color: var(--text-primary); font-weight: 600;">+50.0% Imbalance</span>
+                            <span style="color: var(--bull-emerald);">Bids Pressure</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 6-Layer Pre-Broadcast Guardrail Status Shield -->
+            <div class="panel" id="guardrail-shield">
+                <div class="panel-header">
+                    <span class="panel-title">6-Layer Pre-Broadcast Safety Shield</span>
+                    <span class="brand-badge" style="color: var(--bull-emerald);">100% ARMED</span>
+                </div>
+                <div class="panel-body">
+                    <div class="guardrail-list">
+                        <div class="guardrail-item passed" id="shield-l1">
+                            <span class="guardrail-name">Layer 1: Contract Security (GoPlus)</span>
+                            <span class="guardrail-status-pill passed" id="pill-l1">PASSED</span>
+                        </div>
+                        <div class="guardrail-item passed" id="shield-l2">
+                            <span class="guardrail-name">Layer 2: Capital Allocation ($200/$250 cap)</span>
+                            <span class="guardrail-status-pill passed" id="pill-l2">PASSED</span>
+                        </div>
+                        <div class="guardrail-item passed" id="shield-l3">
+                            <span class="guardrail-name">Layer 3: Dynamic Slippage (50 bps / 0.42%)</span>
+                            <span class="guardrail-status-pill passed" id="pill-l3">PASSED</span>
+                        </div>
+                        <div class="guardrail-item passed" id="shield-l4">
+                            <span class="guardrail-name">Layer 4: Gas Ceiling (18.2 Gwei / 0.12%)</span>
+                            <span class="guardrail-status-pill passed" id="pill-l4">PASSED</span>
+                        </div>
+                        <div class="guardrail-item passed" id="shield-l5">
+                            <span class="guardrail-name">Layer 5: eth_call Dry-Run Pre-Flight</span>
+                            <span class="guardrail-status-pill passed" id="pill-l5">PASSED</span>
+                        </div>
+                        <div class="guardrail-item passed" id="shield-l6">
+                            <span class="guardrail-name">Layer 6: Arbitrum Uniswap v3 Signer</span>
+                            <span class="guardrail-status-pill passed" id="pill-l6">PASSED</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Frontier Mode: Trade Approval & MetaMask Confirmation -->
+            <div class="panel" id="frontier-mode-pane">
+                <div class="panel-header">
+                    <span class="panel-title">Frontier Mode: Human Execution Gate</span>
+                    <span class="brand-badge">MetaMask Bridge</span>
+                </div>
+                <div class="panel-body">
+                    <div class="frontier-approval-card">
+                        <div style="font-size: 11px; color: var(--text-secondary); line-height: 1.4;">
+                            Agentic consensus reached. Staged transaction conforms to pre-broadcast safety constraints on Arbitrum One (Chain ID: 42161).
+                        </div>
+                        <button class="btn-confirm-swap" id="btn-confirm-swap">
+                            Confirm On-Chain Swap (BUY)
+                        </button>
+                    </div>
+
+                    <div style="margin-top: 12px;">
+                        <span style="font-size: 10px; color: var(--text-muted); text-transform: uppercase;">Recent Executions</span>
+                        <div id="recent-trades" style="margin-top: 6px;"></div>
+                    </div>
+                </div>
+            </div>
+
+        </section>
+
+    </main>
+
+    <!-- Frontier Mode Confirmation Modal -->
+    <div class="modal-overlay" id="tx-confirm-modal">
+        <div class="modal-content">
+            <h3 style="margin-bottom: 12px; font-size: 15px; color: var(--text-primary);">Confirm MetaMask On-Chain Swap</h3>
+            <div style="font-size: 12px; color: var(--text-secondary); margin-bottom: 16px; line-height: 1.5;" id="modal-tx-details">
+                <p id="modal-action-p"><strong>Action:</strong> Swap 40.00 USD &rarr; BTC</p>
+                <p id="modal-sizing-p"><strong>Position Sizing:</strong> Allocated from ETH balance (0.015 ETH gas reserved)</p>
+                <p id="modal-target-p"><strong>Profit Target Goal:</strong> +$2,000.00 USD</p>
+                <p><strong>Router:</strong> Uniswap v3 SwapRouter02 (Arbitrum One / 42161)</p>
+                <p><strong>Max Slippage:</strong> 50 bps (0.50%) | <strong>ATR Stop-Loss:</strong> -3.2%</p>
+            </div>
+            <div style="display: flex; justify-content: flex-end; gap: 8px;">
+                <button class="btn-ctrl" id="modal-cancel-btn" style="padding: 6px 14px;">Cancel</button>
+                <button class="btn-confirm-swap" id="modal-submit-btn" style="padding: 6px 14px; font-size: 12px;">Sign & Broadcast Transaction</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Self-Contained JavaScript Client -->
+    <script src="/static/js/chart_engine.js"></script>
+    <script src="/static/js/app.js"></script>
+</body>
+</html>

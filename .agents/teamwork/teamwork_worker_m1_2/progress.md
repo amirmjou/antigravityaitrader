@@ -1,0 +1,29 @@
+# Progress Log — teamwork_worker_m1_2
+
+- Last visited: 2026-11-06T18:10:00Z
+- Status: Complete
+- Completed:
+  - Fix Strategy 3 fully implemented and verified:
+    - `core/__init__.py`: Added `_CORE_DIR` to `sys.path`, streamlined `_TradingAgentsAliasFinder` to avoid dual-loading.
+    - `core/tests/conftest.py`: Prevented premature import of `core` before test environment isolation, rebuilt `DEFAULT_CONFIG`, patched `_PREFS_PATH`.
+    - `core/tests/test_i18n_coverage.py`: Updated `_AGENTS_DIR` to `parents[1] / "agents"`.
+    - `core/tests/test_reporting.py` & `test_sec_edgar.py`: Replaced `tradingagents.__version__` with `core.__version__`.
+    - `core/tests/test_cli_commands.py`: Ensured `PYTHONPATH` includes `core_dir` in subprocess invocation.
+    - Result: `core/tests/` passed 1420 / 1420 (0 failures).
+  - Fix Strategy 1 fully implemented and verified:
+    - `core/agents/schemas.py`: Replaced NaN/Inf/empty strings with None in `_coerce_optional_float`; configured `model_config = ConfigDict(allow_inf_nan=False, validate_assignment=True)` and field validators rejecting non-finite floats on `TraderProposal`, `PortfolioDecision`, and `SentimentReport`.
+    - `core/agents/jev_adapter.py`: Guarded against empty criteria/variants; validated `math.isfinite()` on `entry_price` and `stop_loss`; rejected unanchored stops (`has_stop and not has_entry -> stop_valid=False`).
+    - `tests/adversarial/test_m1_adversarial_stress.py`: Updated assertions for hardened Jev & schema behavior.
+    - Result: `tests/adversarial/test_m1_adversarial_stress.py` passed 39 / 39 (0 failures).
+  - Fix Strategy 2 fully implemented and verified:
+    - `core/graph/trading_graph.py`: Setup `crypto_workflow` without fundamentals; dynamic dispatch based on `asset_type == 'crypto'` or ticker in `_CRYPTO_BASES`; safe checkpoint compilation.
+    - `core/agents/analysts/fundamentals_analyst.py`: Added early crypto skip returning blank report.
+    - `core/agents/researchers/bull_researcher.py` & `bear_researcher.py`: Completely suppressed fundamentals report for crypto assets to prevent corporate text leakage.
+    - `tests/adversarial/test_m1_adversarial_challenge.py`: Updated test assertions for NaN coercion, Jev safety, crypto graph fundamentals omission, and prompt isolation.
+    - Result: `tests/adversarial/test_m1_adversarial_challenge.py` passed 9 / 9 (0 failures).
+  - End-to-End Suite Regression Check:
+    - `tests/e2e/run_all.py` passed 200 / 200 (0 failures).
+  - Artifacts Generated:
+    - `changes.md`
+    - `handoff.md` (Hard Handoff Report)
+    - `BRIEFING.md` (Updated)

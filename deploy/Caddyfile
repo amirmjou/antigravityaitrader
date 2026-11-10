@@ -1,0 +1,34 @@
+# Production Caddyfile for Antigravity Agentic Trading Platform
+{
+    # Global options
+    admin off
+    auto_https off
+}
+
+:80 {
+    # Security headers
+    header {
+        X-Content-Type-Options "nosniff"
+        X-Frame-Options "DENY"
+        Referrer-Policy "strict-origin-when-cross-origin"
+        Strict-Transport-Security "max-age=31536000; includeSubDomains"
+        -Server
+    }
+
+    # Logging
+    log {
+        output stdout
+        format json
+    }
+
+    # Proxy all traffic to backend trading server
+    reverse_proxy trading-server:8899 {
+        header_up Host {host}
+        header_up X-Real-IP {remote_host}
+        header_up X-Forwarded-For {remote_host}
+        header_up X-Forwarded-Proto {scheme}
+
+        # Enable SSE buffering disablement
+        flush_interval -1
+    }
+}

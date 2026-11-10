@@ -1,0 +1,65 @@
+version: "3.8"
+
+services:
+  trading-server:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: agentic-trading:production
+    container_name: agentic_trading_server
+    restart: unless-stopped
+    read_only: true
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    user: "10001:10001"
+    environment:
+      - TRADINGAGENTS_SECURITY_MODE=production
+      - SERVER_BIND_HOST=0.0.0.0
+      - SERVER_PORT=8899
+      - ALLOWED_ORIGINS=http://localhost:3000,http://127.0.0.1:3000,http://localhost:8899,http://127.0.0.1:8899
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,size=64m
+      - /app/data/cache:rw,noexec,nosuid,size=128m
+    volumes:
+      - keystore_data:/app/keystores:rw
+      - results_data:/app/results:rw
+    networks:
+      - internal_net
+    secrets:
+      - api_auth_key
+      - keystore_password
+
+  reverse-proxy:
+    image: caddy:2.7-alpine
+    container_name: trading_caddy_proxy
+    restart: unless-stopped
+    ports:
+      - "443:443"
+      - "80:80"
+    volumes:
+      - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    networks:
+      - internal_net
+    depends_on:
+      - trading-server
+
+networks:
+  internal_net:
+    driver: bridge
+    internal: false
+
+volumes:
+  keystore_data:
+  results_data:
+  caddy_data:
+  caddy_config:
+
+secrets:
+  api_auth_key:
+    file: ./secrets/api_auth_key.txt
+  keystore_password:
+    file: ./secrets/keystore_password.txt

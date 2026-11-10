@@ -1,0 +1,64 @@
+[Unit]
+Description=Autonomous Arbitrum On-Chain Trading Bot 24/7 Service
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=tradingbot
+Group=tradingbot
+WorkingDirectory=/opt/tradingbot
+ExecStart=/usr/bin/python3 scripts/autonomous_arbitrum_trader.py
+Restart=always
+RestartSec=5s
+
+# ------------------------------------------------------------------------------
+# SECURITY HARDENING & SANDBOXING (Zero-Trust OS Isolation)
+# ------------------------------------------------------------------------------
+# Prevent gaining new privileges via SUID/SGID binaries
+NoNewPrivileges=true
+
+# Read-only OS filesystem; protects /usr, /boot, /etc from tamper
+ProtectSystem=strict
+
+# Protect user home directories from access
+ProtectHome=true
+
+# Isolated, ephemeral /tmp and /var/tmp namespace
+PrivateTmp=true
+
+# Deny access to kernel tunables and sysctl
+ProtectKernelTunables=true
+
+# Deny access to hardware clock
+ProtectClock=true
+
+# Deny access to kernel control groups
+ProtectControlGroups=true
+
+# Disallow changing hostname
+ProtectHostname=true
+
+# Drop all kernel capabilities (raw sockets, device mounting, etc.)
+CapabilityBoundingSet=
+AmbientCapabilities=
+
+# Restrict address families to IPv4, IPv6, and Unix sockets only
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+
+# Memory protection (set to false to allow cffi / cryptography bindings)
+MemoryDenyWriteExecute=false
+
+# Restrict realtime process scheduling to prevent denial-of-service
+RestrictRealtime=true
+
+# Load secrets securely from isolated root-owned environment file
+EnvironmentFile=/etc/tradingbot/tradingbot.env
+
+# Standard output and error logging to systemd journal / Google Cloud Ops Agent
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=arbitrum-tradingbot
+
+[Install]
+WantedBy=multi-user.target
