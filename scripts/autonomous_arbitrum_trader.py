@@ -28,6 +28,7 @@ from web3 import Web3
 from core.ai.gemini_deliberator import GeminiDeliberator
 from core.analytics.accuracy_tracker import AccuracyTracker
 from core.notifications.telegram_notifier import TelegramNotifier
+from core.visualization.chart_generator import generate_balance_chart
 
 # Configure structured logging for Google Cloud Logging / Stackdriver
 logging.basicConfig(
@@ -326,10 +327,36 @@ def run_continuous_trading_loop():
             holdings_desc=holdings_str,
         )
 
+    def handle_chart_cmd() -> Optional[str]:
+        cur_w3 = get_resilient_web3()
+        e, w, u = get_balances(cur_w3, acct.address)
+        spot = current_decision_state.get("spot_px", 3120.0)
+        tot = (e + w) * spot + u
+        chart_file = generate_balance_chart(
+            current_eth=e,
+            current_weth=w,
+            current_usdc=u,
+            eth_price=spot,
+        )
+        if chart_file and os.path.exists(chart_file):
+            caption = (
+                f"📊 <b>Arbitrum Portfolio Balance & Daily PnL Chart</b>\n\n"
+                f"• Current Valuation: <b>${tot:.2f} USD</b>\n"
+                f"• Native ETH: <code>{e:.6f} ETH</code> | WETH: <code>{w:.6f} WETH</code>\n"
+                f"• USDC Reserve: <code>${u:.2f} USDC</code>\n"
+                f"• Network: Arbitrum One (Chain ID 42161)\n\n"
+                f"<i>Updated: {time.strftime('%Y-%m-%d %H:%M:%S UTC')}</i>"
+            )
+            telegram.send_photo(chart_file, caption=caption)
+            return None
+        return "⚠️ Could not generate chart. Please verify matplotlib is installed."
+
     def handle_ping_cmd() -> str:
         return "🏓 <b>Pong!</b> Trading bot is alive and running 24/7 on Google Cloud."
 
     telegram.register_command("/balance", handle_balance_cmd)
+    telegram.register_command("/chart", handle_chart_cmd)
+    telegram.register_command("/graph", handle_chart_cmd)
     telegram.register_command("/status", handle_status_cmd)
     telegram.register_command("/report", handle_report_cmd)
     telegram.register_command("/accuracy", handle_accuracy_cmd)

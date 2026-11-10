@@ -74,6 +74,58 @@ class TelegramNotifier:
             logger.error(f"Failed to send Telegram message: {e}")
             return False
 
+    def send_photo(self, photo_path: str, caption: Optional[str] = None) -> bool:
+        """Send a photo/chart directly to Telegram using standard multipart/form-data."""
+        if not self.is_configured or not os.path.exists(photo_path):
+            logger.warning(f"Cannot send photo: configured={self.is_configured}, exists={os.path.exists(photo_path)}")
+            return False
+
+        boundary = "----WebKitFormBoundary" + os.urandom(16).hex()
+        with open(photo_path, "rb") as f:
+            photo_bytes = f.read()
+
+        body = bytearray()
+        # chat_id field
+        body.extend(f"--{boundary}\r\n".encode())
+        body.extend(b'Content-Disposition: form-data; name="chat_id"\r\n\r\n')
+        body.extend(f"{self.chat_id}\r\n".encode())
+
+        # caption field
+        if caption:
+            body.extend(f"--{boundary}\r\n".encode())
+            body.extend(b'Content-Disposition: form-data; name="caption"\r\n\r\n')
+            body.extend(caption.encode("utf-8") + b"\r\n")
+            body.extend(f"--{boundary}\r\n".encode())
+            body.extend(b'Content-Disposition: form-data; name="parse_mode"\r\n\r\n')
+            body.extend(b"HTML\r\n")
+
+        # photo binary field
+        body.extend(f"--{boundary}\r\n".encode())
+        body.extend(b'Content-Disposition: form-data; name="photo"; filename="balance_chart.png"\r\n')
+        body.extend(b"Content-Type: image/png\r\n\r\n")
+        body.extend(photo_bytes)
+        body.extend(b"\r\n")
+
+        # closing boundary
+        body.extend(f"--{boundary}--\r\n".encode())
+
+        url = f"{self.api_base}/sendPhoto"
+        try:
+            req = urllib.request.Request(
+                url,
+                data=bytes(body),
+                headers={
+                    "Content-Type": f"multipart/form-data; boundary={boundary}",
+                    "User-Agent": "ArbitrumTraderBot/1.0",
+                },
+            )
+            with urllib.request.urlopen(req, timeout=15) as resp:
+                data = json.loads(resp.read().decode("utf-8"))
+                return bool(data.get("ok"))
+        except Exception as e:
+            logger.error(f"Failed to send Telegram photo: {e}")
+            return False
+
     def send_startup_alert(self, address: str, native_eth: float, usdc: float, network: str = "Arbitrum One") -> bool:
         """Notify user that the bot has started or rebooted on Google Cloud."""
         total_usd = native_eth * 3120.0 + usdc
@@ -203,12 +255,15 @@ class TelegramNotifier:
                             if handler:
                                 try:
                                     response_text = handler()
-                                    self.send_message(response_text)
+                                    if response_text:
+                                        self.send_message(response_text)
                                 except Exception as err:
                                     self.send_message(f"⚠️ Error executing {cmd}: {err}")
                             elif cmd in ["/help", "/start"]:
                                 help_msg = (
                                     "👋 <b>Arbitrum Bot Command List:</b>\n\n"
+                                    "📈 <b>Visual Charts:</b>\n"
+                                    "• <code>/chart</code> (or <code>/graph</code>) — Live balance equity curve & daily PnL chart\n\n"
                                     "🧠 <b>Intelligence & Explainability:</b>\n"
                                     "• <code>/gemini</code> — On-demand Gemini AI cognitive market analysis\n"
                                     "• <code>/decision</code> — Why the bot is holding/swapping right now\n"
