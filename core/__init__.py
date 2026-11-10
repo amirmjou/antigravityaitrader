@@ -55,19 +55,23 @@ if not any(isinstance(f, _TradingAgentsAliasFinder) for f in sys.meta_path):
 sys.modules["tradingagents"] = sys.modules[__name__]
 
 # --------------------------------------------------------------------------- #
-# Primary Clean Programmatic Entry Points & Interface Contracts
+# Primary Clean Programmatic Entry Points & Interface Contracts (Lazy / Safe)
 # --------------------------------------------------------------------------- #
-from core.agents.jev_adapter import JevAdapter, run_local_jev
-from core.agents.schemas import (
-    PortfolioDecision,
-    PortfolioRating,
-    ResearchPlan,
-    SentimentReport,
-    TraderAction,
-    TraderProposal,
-)
-from core.graph.trading_graph import TradingAgentsGraph
-from core.memory import TradingMemoryLog
+try:
+    from core.agents.jev_adapter import JevAdapter, run_local_jev
+    from core.agents.schemas import (
+        PortfolioDecision,
+        PortfolioRating,
+        ResearchPlan,
+        SentimentReport,
+        TraderAction,
+        TraderProposal,
+    )
+    from core.graph.trading_graph import TradingAgentsGraph
+    from core.memory import TradingMemoryLog
+except ImportError:
+    # Graceful fallback in lightweight daemon runtime where langchain is not needed
+    pass
 
 __all__ = [
     "JevAdapter",
