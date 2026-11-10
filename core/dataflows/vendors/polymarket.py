@@ -12,7 +12,12 @@ outcomes (a "Yes" at 0.76 means the market prices a 76% chance).
 import json
 import logging
 import math
-from datetime import UTC, datetime
+from datetime import datetime, timezone
+
+try:
+    from datetime import UTC
+except ImportError:
+    UTC = timezone.utc
 
 import requests
 

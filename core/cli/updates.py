@@ -17,7 +17,12 @@ import sys
 import threading
 import time
 from collections.abc import Callable
-from datetime import UTC, date, datetime
+from datetime import date, datetime, timezone
+
+try:
+    from datetime import UTC
+except ImportError:
+    UTC = timezone.utc
 from pathlib import Path
 from urllib.parse import unquote, urlparse
 

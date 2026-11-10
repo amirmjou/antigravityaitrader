@@ -6,7 +6,13 @@ news injected future articles), #993 (empty-after-filter returned a blank body),
 and #1126 (inclusive upper bound leaked the midnight-after article; host-local
 timestamp parsing made filtering machine-dependent).
 """
-from datetime import UTC, datetime
+from datetime import datetime, timezone
+
+try:
+    from datetime import UTC
+except ImportError:
+    UTC = timezone.utc
+
 
 import pytest
 

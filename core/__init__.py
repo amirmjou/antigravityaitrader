@@ -69,8 +69,8 @@ try:
     )
     from core.graph.trading_graph import TradingAgentsGraph
     from core.memory import TradingMemoryLog
-except ImportError:
-    # Graceful fallback in lightweight daemon runtime where langchain is not needed
+except Exception:
+    # Graceful fallback in lightweight daemon runtime where heavy dependencies/submodules are not loaded
     pass
 
 __all__ = [

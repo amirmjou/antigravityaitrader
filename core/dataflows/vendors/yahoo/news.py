@@ -1,7 +1,12 @@
 """yfinance-based news data fetching functions."""
 
 import contextlib
-from datetime import UTC, datetime
+from datetime import datetime, timezone
+
+try:
+    from datetime import UTC
+except ImportError:
+    UTC = timezone.utc
 
 import yfinance as yf
 from dateutil.relativedelta import relativedelta
