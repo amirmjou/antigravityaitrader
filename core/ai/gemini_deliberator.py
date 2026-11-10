@@ -120,10 +120,17 @@ class GeminiDeliberator:
         }
 
         try:
+            headers = {
+                "Content-Type": "application/json",
+                "User-Agent": "ArbitrumTraderBot/1.0",
+            }
+            if self.api_key:
+                headers["X-goog-api-key"] = self.api_key
+
             req = urllib.request.Request(
                 self.endpoint,
                 data=json.dumps(payload).encode("utf-8"),
-                headers={"Content-Type": "application/json", "User-Agent": "ArbitrumTraderBot/1.0"},
+                headers=headers,
             )
             with urllib.request.urlopen(req, timeout=6) as resp:
                 data = json.loads(resp.read().decode("utf-8"))
@@ -131,6 +138,20 @@ class GeminiDeliberator:
                 result = json.loads(text_content)
                 result["source"] = "gemini_1.5_flash"
                 return result
+        except urllib.error.HTTPError as e:
+            err_msg = f"HTTP {e.code}"
+            if e.code == 402:
+                err_msg = "Google Prepayment Credits Depleted (HTTP 402)"
+            logger.warning(f"Gemini API error ({err_msg}). Reverting to rule engine.")
+            return {
+                "approved": True,
+                "action": candidate_action,
+                "confidence_pct": 72.0,
+                "regime": "NEUTRAL",
+                "risk_level": "MODERATE",
+                "rationale": f"Quantitative rule fallback ({err_msg})",
+                "source": "error_fallback",
+            }
         except Exception as e:
             logger.warning(f"Gemini API request failed ({e}). Reverting to rule engine.")
             return {
@@ -139,7 +160,7 @@ class GeminiDeliberator:
                 "confidence_pct": 72.0,
                 "regime": "NEUTRAL",
                 "risk_level": "MODERATE",
-                "rationale": f"Rule engine fallback (Gemini unavailable: {e})",
+                "rationale": f"Rule engine fallback ({e})",
                 "source": "error_fallback",
             }
 
