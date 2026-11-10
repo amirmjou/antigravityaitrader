@@ -101,8 +101,10 @@ class TelegramNotifier:
         tx_hash: str,
         gas_paid_usd: float,
         block_number: int,
+        decision_rationale: Optional[str] = None,
+        conviction_pct: Optional[float] = None,
     ) -> bool:
-        """Notify user of a completed on-chain swap with direct Arbiscan link."""
+        """Notify user of a completed on-chain swap with direct Arbiscan link & decision rationale."""
         icon = "🟢" if "USDC ->" in f"{token_in_name} -> {token_out_name}" else "🔵"
         msg = (
             f"{icon} <b>REAL ON-CHAIN SWAP EXECUTED!</b>\n\n"
@@ -110,9 +112,14 @@ class TelegramNotifier:
             f"<b>Sold:</b> <code>{amount_in:.6f} {token_in_name}</code>\n"
             f"<b>Received:</b> <code>{amount_out:.4f} {token_out_name}</code>\n"
             f"<b>Block:</b> <code>{block_number}</code>\n"
-            f"<b>Gas Fee Paid:</b> <code>${gas_paid_usd:.4f} USD</code> (~1¢)\n\n"
-            f"🔗 <a href='https://arbiscan.io/tx/{tx_hash}'>Verify on Arbiscan</a>"
+            f"<b>Gas Fee Paid:</b> <code>${gas_paid_usd:.4f} USD</code> (~1¢)\n"
         )
+        if conviction_pct is not None:
+            msg += f"<b>Conviction Score:</b> <code>{conviction_pct:.1f}%</code>\n"
+        if decision_rationale:
+            msg += f"🧠 <b>Decision Logic:</b> <i>{decision_rationale}</i>\n"
+
+        msg += f"\n🔗 <a href='https://arbiscan.io/tx/{tx_hash}'>Verify on Arbiscan</a>"
         return self.send_message(msg)
 
     def send_daily_summary(
@@ -202,9 +209,14 @@ class TelegramNotifier:
                             elif cmd in ["/help", "/start"]:
                                 help_msg = (
                                     "👋 <b>Arbitrum Bot Command List:</b>\n\n"
-                                    "• <code>/balance</code> — Show live on-chain balances\n"
-                                    "• <code>/status</code> — System and RPC health\n"
+                                    "🧠 <b>Intelligence & Explainability:</b>\n"
+                                    "• <code>/decision</code> — Why the bot is holding/swapping right now\n"
+                                    "• <code>/accuracy</code> — Win rate %, profit factor, and metrics\n"
+                                    "• <code>/plan</code> — Future roadmap & capital scaling strategy\n\n"
+                                    "💰 <b>Portfolio & Reports:</b>\n"
+                                    "• <code>/balance</code> — Live on-chain Arbitrum balances\n"
                                     "• <code>/report</code> — Today's trade count & PnL\n"
+                                    "• <code>/status</code> — System and RPC health\n"
                                     "• <code>/ping</code> — Verify bot is alive"
                                 )
                                 self.send_message(help_msg)

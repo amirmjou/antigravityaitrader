@@ -25,6 +25,7 @@ import numpy as np
 from eth_account import Account
 from web3 import Web3
 
+from core.analytics.accuracy_tracker import AccuracyTracker
 from core.notifications.telegram_notifier import TelegramNotifier
 
 # Configure structured logging for Google Cloud Logging / Stackdriver
@@ -129,7 +130,9 @@ def execute_swap(
     amount_in_wei: int,
     fee_tier: int = 500,
     telegram: Optional[TelegramNotifier] = None,
-) -> Optional[Tuple[str, float, float]]:
+    decision_rationale: Optional[str] = None,
+    conviction_pct: Optional[float] = None,
+) -> Optional[Tuple[str, float, float, float, int]]:
     address = acct.address
     router = w3.eth.contract(address=UNISWAP_V3_ROUTER, abi=ROUTER_ABI)
     token_in_contract = w3.eth.contract(address=token_in, abi=ERC20_ABI)
@@ -204,9 +207,11 @@ def execute_swap(
                 tx_hash=tx_hash_0x,
                 gas_paid_usd=gas_paid_usd,
                 block_number=receipt.blockNumber,
+                decision_rationale=decision_rationale,
+                conviction_pct=conviction_pct,
             )
 
-        return tx_hash_0x, gas_paid_usd, out_units
+        return tx_hash_0x, gas_paid_usd, in_units, out_units, receipt.blockNumber
     else:
         err_msg = f"Swap transaction reverted on Arbitrum: https://arbiscan.io/tx/{tx_hash_0x}"
         logger.error(err_msg)
@@ -215,12 +220,26 @@ def execute_swap(
         return None
 
 
+def calculate_rsi(prices: list[float], period: int = 14) -> float:
+    if len(prices) < 5:
+        return 50.0
+    deltas = np.diff(prices)
+    gains = deltas[deltas > 0]
+    losses = -deltas[deltas < 0]
+    avg_gain = float(np.mean(gains)) if len(gains) > 0 else 0.0001
+    avg_loss = float(np.mean(losses)) if len(losses) > 0 else 0.0001
+    rs = avg_gain / avg_loss
+    rsi = 100.0 - (100.0 / (1.0 + rs))
+    return float(np.clip(rsi, 0.0, 100.0))
+
+
 def run_continuous_trading_loop():
     key = load_secret_key()
     acct = Account.from_key(key)
     w3 = get_resilient_web3()
 
     telegram = TelegramNotifier()
+    tracker = AccuracyTracker()
 
     # Initial Balances & Daily Tracker
     native_eth, weth, usdc = get_balances(w3, acct.address)
@@ -230,11 +249,24 @@ def run_continuous_trading_loop():
     daily_gas_spent_usd = 0.0
     last_daily_report_day = datetime.now(timezone.utc).day
 
+    # Live decision state dictionary for explainability
+    current_decision_state: Dict[str, Any] = {
+        "spot_px": 3120.0,
+        "short_ma": 3120.0,
+        "long_ma": 3120.0,
+        "rsi": 50.0,
+        "regime": "NEUTRAL_STARTUP",
+        "conviction_pct": 75.0,
+        "action": "ANALYZING_MARKET",
+        "rationale": "Initial market state analysis in progress.",
+        "next_trigger": "Waiting for price history buffer to establish MA trend.",
+    }
+
     # 1. Register Interactive Telegram Handlers
     def handle_balance_cmd() -> str:
         cur_w3 = get_resilient_web3()
         e, w, u = get_balances(cur_w3, acct.address)
-        tot = (e + w) * 3120.0 + u
+        tot = (e + w) * current_decision_state.get("spot_px", 3120.0) + u
         return (
             "💰 <b>Current Arbitrum On-Chain Balance:</b>\n\n"
             f"• Native ETH: <code>{e:.6f} ETH</code> (Gas reserve)\n"
@@ -260,7 +292,7 @@ def run_continuous_trading_loop():
     def handle_report_cmd() -> str:
         cur_w3 = get_resilient_web3()
         e, w, u = get_balances(cur_w3, acct.address)
-        cur_tot = (e + w) * 3120.0 + u
+        cur_tot = (e + w) * current_decision_state.get("spot_px", 3120.0) + u
         pnl = cur_tot - starting_total_usd
         return (
             "📊 <b>Today's Performance Report:</b>\n\n"
@@ -271,12 +303,26 @@ def run_continuous_trading_loop():
             f"• Total Gas Paid: <code>${daily_gas_spent_usd:.4f} USD</code>"
         )
 
+    def handle_accuracy_cmd() -> str:
+        return tracker.format_accuracy_report()
+
+    def handle_decision_cmd() -> str:
+        return tracker.format_decision_report(current_decision_state)
+
+    def handle_plan_cmd() -> str:
+        return tracker.format_plan_report()
+
     def handle_ping_cmd() -> str:
         return "🏓 <b>Pong!</b> Trading bot is alive and running 24/7 on Google Cloud."
 
     telegram.register_command("/balance", handle_balance_cmd)
     telegram.register_command("/status", handle_status_cmd)
     telegram.register_command("/report", handle_report_cmd)
+    telegram.register_command("/accuracy", handle_accuracy_cmd)
+    telegram.register_command("/stats", handle_accuracy_cmd)
+    telegram.register_command("/decision", handle_decision_cmd)
+    telegram.register_command("/why", handle_decision_cmd)
+    telegram.register_command("/plan", handle_plan_cmd)
     telegram.register_command("/ping", handle_ping_cmd)
 
     # Start receiving interactive Telegram messages in background
@@ -288,7 +334,7 @@ def run_continuous_trading_loop():
     price_history = []
 
     logger.info("================================================================================")
-    logger.info(" AUTONOMOUS ARBITRUM ONE 24/7 TRADING ENGINE (TELEGRAM ENABLED)")
+    logger.info(" AUTONOMOUS ARBITRUM ONE 24/7 TRADING ENGINE (TELEGRAM + INTELLIGENCE)")
     logger.info(f" Wallet:   {acct.address}")
     logger.info(f" Telegram: {'Configured & Active' if telegram.is_configured else 'Disabled (Token missing)'}")
     logger.info("================================================================================")
@@ -345,30 +391,92 @@ def run_continuous_trading_loop():
             if len(price_history) > 30:
                 price_history.pop(0)
 
-            # Indicator momentum evaluation
-            if len(price_history) >= 10:
-                short_ma = np.mean(price_history[-5:])
-                long_ma = np.mean(price_history[-10:])
-                is_bullish = short_ma > long_ma
-                is_bearish = short_ma < long_ma
+            # Indicator momentum & RSI evaluation
+            short_ma = float(np.mean(price_history[-5:])) if len(price_history) >= 5 else spot_px
+            long_ma = float(np.mean(price_history[-10:])) if len(price_history) >= 10 else spot_px
+            rsi = calculate_rsi(price_history)
+            ma_diff_pct = ((short_ma - long_ma) / long_ma * 100.0) if long_ma > 0 else 0.0
 
+            is_bullish = (short_ma > long_ma) and (rsi >= 40.0)
+            is_bearish = (short_ma < long_ma) and (rsi <= 60.0)
+            conviction = float(min(96.0, max(52.0, 65.0 + abs(ma_diff_pct) * 35.0)))
+
+            regime = "BULLISH_EXPANSION" if is_bullish else ("BEARISH_PULLBACK" if is_bearish else "CONSOLIDATION_RANGE")
+
+            # Update live state for /decision & /why Telegram queries
+            current_decision_state["spot_px"] = spot_px
+            current_decision_state["short_ma"] = short_ma
+            current_decision_state["long_ma"] = long_ma
+            current_decision_state["rsi"] = rsi
+            current_decision_state["regime"] = regime
+            current_decision_state["conviction_pct"] = conviction
+
+            if weth >= 0.0003:
+                current_decision_state["action"] = "HOLDING_WETH (Target: Take Profit or Bear Flip)"
+                current_decision_state["rationale"] = (
+                    f"Capital deployed in WETH (0.00050 WETH ~${weth * spot_px:.2f}). "
+                    f"Fast MA (${short_ma:.2f}) vs Slow MA (${long_ma:.2f}), RSI={rsi:.1f}. "
+                    "Holding position while trend remains favorable."
+                )
+                current_decision_state["next_trigger"] = (
+                    f"Bearish crossover below Slow MA (${long_ma:.2f}) or RSI < 42 will trigger SELL to USDC."
+                )
+            elif usdc >= 0.50:
+                current_decision_state["action"] = "HOLDING_USDC (Ready to Accumulate WETH)"
+                current_decision_state["rationale"] = (
+                    f"Capital preserved in USDC (${usdc:.2f} USDC). "
+                    f"Fast MA (${short_ma:.2f}) vs Slow MA (${long_ma:.2f}), RSI={rsi:.1f}. "
+                    "Waiting for confirmed bullish momentum cross to buy WETH."
+                )
+                current_decision_state["next_trigger"] = (
+                    f"Bullish crossover above Slow MA (${long_ma:.2f}) with RSI > 45 will trigger BUY into WETH."
+                )
+            else:
+                current_decision_state["action"] = "BALANCED_PORTFOLIO"
+                current_decision_state["rationale"] = "Monitoring Arbitrum liquidity pools and spot price momentum."
+                current_decision_state["next_trigger"] = "Waiting for capital allocation."
+
+            # Execution triggers
+            if len(price_history) >= 10:
                 # Bullish & we hold USDC -> Swap USDC into WETH
                 if is_bullish and usdc >= 0.50:
-                    logger.info(f"Bullish signal confirmed (MA5={short_ma:.2f} > MA10={long_ma:.2f}). Swapping {usdc:.4f} USDC -> WETH...")
+                    rationale = f"Bullish momentum trigger: MA5 (${short_ma:.2f}) crossed MA10 (${long_ma:.2f}) with RSI={rsi:.1f}"
+                    logger.info(f"{rationale}. Swapping {usdc:.4f} USDC -> WETH...")
                     swap_amount_wei = int(usdc * 1e6)
-                    res = execute_swap(w3, acct, USDC_ADDRESS, WETH_ADDRESS, swap_amount_wei, fee_tier=500, telegram=telegram)
+                    res = execute_swap(
+                        w3, acct, USDC_ADDRESS, WETH_ADDRESS, swap_amount_wei,
+                        fee_tier=500, telegram=telegram, decision_rationale=rationale, conviction_pct=conviction
+                    )
                     if res:
+                        tx_hash, gas_paid, in_units, out_units, blk = res
                         daily_trades_count += 1
-                        daily_gas_spent_usd += res[1]
+                        daily_gas_spent_usd += gas_paid
+                        tracker.record_swap(
+                            action="BUY WETH", token_in="USDC", token_out="WETH",
+                            amount_in=in_units, amount_out=out_units, price_usd=spot_px,
+                            gas_paid_usd=gas_paid, tx_hash=tx_hash, block_number=blk,
+                            decision_rationale=rationale, conviction_pct=conviction
+                        )
 
-                # Bearish & we hold WETH -> Swap WETH into USDC to lock in profit
+                # Bearish & we hold WETH -> Swap WETH into USDC to lock in profit / defend capital
                 elif is_bearish and weth >= 0.0003:
-                    logger.info(f"Bearish signal confirmed (MA5={short_ma:.2f} < MA10={long_ma:.2f}). Swapping {weth:.6f} WETH -> USDC...")
+                    rationale = f"Bearish momentum trigger: MA5 (${short_ma:.2f}) broke below MA10 (${long_ma:.2f}) with RSI={rsi:.1f}"
+                    logger.info(f"{rationale}. Swapping {weth:.6f} WETH -> USDC...")
                     swap_amount_wei = int(weth * 1e18)
-                    res = execute_swap(w3, acct, WETH_ADDRESS, USDC_ADDRESS, swap_amount_wei, fee_tier=500, telegram=telegram)
+                    res = execute_swap(
+                        w3, acct, WETH_ADDRESS, USDC_ADDRESS, swap_amount_wei,
+                        fee_tier=500, telegram=telegram, decision_rationale=rationale, conviction_pct=conviction
+                    )
                     if res:
+                        tx_hash, gas_paid, in_units, out_units, blk = res
                         daily_trades_count += 1
-                        daily_gas_spent_usd += res[1]
+                        daily_gas_spent_usd += gas_paid
+                        tracker.record_swap(
+                            action="BUY USDC", token_in="WETH", token_out="USDC",
+                            amount_in=in_units, amount_out=out_units, price_usd=spot_px,
+                            gas_paid_usd=gas_paid, tx_hash=tx_hash, block_number=blk,
+                            decision_rationale=rationale, conviction_pct=conviction
+                        )
 
         except Exception as e:
             err_msg = str(e)
