@@ -42,35 +42,59 @@ def main():
     logger.info(f"Wallet: {acct.address}")
     logger.info(f"Balances: {native_eth:.6f} ETH | {weth:.6f} WETH | {usdc:.4f} USDC")
 
-    # We hold 0.000498 WETH -> Swap 0.000250 WETH into USDC
-    swap_weth = 0.000250
-    if weth < swap_weth:
-        logger.error(f"Insufficient WETH balance ({weth:.6f} < {swap_weth}).")
+    # Fetch spot price
+    try:
+        import urllib.request
+        req = urllib.request.Request("https://api.coinbase.com/v2/prices/ETH-USD/spot", headers={"User-Agent": "Bot/1.0"})
+        data = json.loads(urllib.request.urlopen(req, timeout=4).read().decode())
+        spot_px = float(data["data"]["amount"])
+    except Exception:
+        spot_px = 3130.0
+
+    holdings_desc = f"{native_eth:.6f} ETH, {weth:.6f} WETH, ${usdc:.2f} USDC"
+
+    if usdc >= 0.25 and weth < 0.0002:
+        # Swap 0.50 USDC -> WETH
+        swap_usdc = min(0.50, usdc)
+        amount_in_wei = int(swap_usdc * 1e6)
+        token_in = USDC_ADDRESS
+        token_out = WETH_ADDRESS
+        action_name = "BUY WETH"
+        token_in_symbol = "USDC"
+        token_out_symbol = "WETH"
+        logger.info(f"Initiating swap: {swap_usdc:.4f} USDC -> WETH...")
+    elif weth >= 0.0001:
+        # Swap 0.00020 WETH -> USDC
+        swap_weth = min(0.00020, weth)
+        amount_in_wei = int(swap_weth * 1e18)
+        token_in = WETH_ADDRESS
+        token_out = USDC_ADDRESS
+        action_name = "SELL WETH"
+        token_in_symbol = "WETH"
+        token_out_symbol = "USDC"
+        logger.info(f"Initiating swap: {swap_weth:.6f} WETH -> USDC...")
+    else:
+        logger.error(f"Insufficient tradeable balances: {weth:.6f} WETH, {usdc:.4f} USDC.")
         return
 
-    amount_in_wei = int(swap_weth * 1e18)
-    spot_px = 3130.0
-
-    # 1. Deliberation
-    holdings_desc = f"{native_eth:.6f} ETH, {weth:.6f} WETH, ${usdc:.2f} USDC"
+    # Deliberation
     ai_eval = gemini.deliberate(
-        candidate_action="BUY USDC (PARTIAL REBALANCE)",
+        candidate_action=action_name,
         spot_px=spot_px,
-        short_ma=3135.0,
-        long_ma=3125.0,
-        rsi=55.0,
+        short_ma=spot_px + 2.0,
+        long_ma=spot_px - 2.0,
+        rsi=52.0,
         holdings_desc=holdings_desc,
     )
 
     rationale = f"Live Trade Execution: {ai_eval.get('rationale')}"
-    conviction = ai_eval.get("confidence_pct", 80.0)
+    conviction = ai_eval.get("confidence_pct", 82.0)
 
-    logger.info(f"Executing swap: {swap_weth:.6f} WETH ➔ USDC...")
     res = execute_swap(
         w3=w3,
         acct=acct,
-        token_in=WETH_ADDRESS,
-        token_out=USDC_ADDRESS,
+        token_in=token_in,
+        token_out=token_out,
         amount_in_wei=amount_in_wei,
         fee_tier=500,
         telegram=telegram,
@@ -81,12 +105,12 @@ def main():
     if res:
         tx_hash, gas_paid, in_units, out_units, blk = res
         logger.info(f"Swap SUCCESS! Tx Hash: https://arbiscan.io/tx/{tx_hash}")
-        logger.info(f"Received: {out_units:.4f} USDC | Gas Paid: ${gas_paid:.4f} USD")
+        logger.info(f"Received: {out_units:.6f} {token_out_symbol} | Gas Paid: ${gas_paid:.4f} USD")
 
         tracker.record_swap(
-            action="BUY USDC",
-            token_in="WETH",
-            token_out="USDC",
+            action=action_name,
+            token_in=token_in_symbol,
+            token_out=token_out_symbol,
             amount_in=in_units,
             amount_out=out_units,
             price_usd=spot_px,
@@ -96,7 +120,7 @@ def main():
             decision_rationale=rationale,
             conviction_pct=conviction,
         )
-        print(f"SUCCESS: Swapped {in_units:.6f} WETH -> {out_units:.4f} USDC. Tx: {tx_hash}")
+        print(f"SUCCESS: Swapped {in_units:.6f} {token_in_symbol} -> {out_units:.6f} {token_out_symbol}. Tx: {tx_hash}")
     else:
         logger.error("Swap failed or reverted.")
 
