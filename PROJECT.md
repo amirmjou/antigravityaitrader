@@ -97,6 +97,12 @@ Every feature identified during Phase 0 Survey is cataloged below with its desig
 | F28 | Multi-Asset Spot Telemetry & Indicators | Real-time BTC, ETH, SOL spot prices, RSI, ADX, SMA/EMA, MACD, and order book over `/ws/telemetry` | M6 | Live Dispatch (R2) |
 | F29 | MetaMask EIP-1193 Bridge Endpoints | `/wallet_syncAccount`, `/rpc`, `/send-transaction`, `/confirm-transaction` with guardrail validation & reject handling | M6 | Live Dispatch (R3) |
 | F30 | Automated Verification & Non-Regression | Programmatic automated test harness `tests/verify_live_terminal_metamask.py` and full test suite non-regression | M6 | Live Dispatch (R4) |
+| F39 | Quantitative Strategy Formulations & Mathematical Models | Mathematical formulations of WBTC/WETH log ratio momentum, RMO oscillator, Z-score overextension bounds, multi-factor macro regime detection, ARB/LINK risk-on rotation, and drift rebalancing rules | M8 | Explorer 1 (R1) |
+| F40 | Arbitrum Uniswap v3 Pool Depth & Liquidity Modeling | Empirical mapping of 7 target pairs across 4 fee tiers, address correction for Circle Native USDC & QuoterV2, concentrated liquidity slippage models ($100–$50k), and multi-hop routing optimization | M8 | Explorer 2 (R2) |
+| F41 | Arbitrum L2 Gas Economics & Breakeven Modeling | ArbOS 20 blob posting cost deconstruction, single vs multi-hop gas usage, and mathematical breakeven trade size threshold formulas | M8 | Explorer 2 (R2) |
+| F42 | Risk Management & Capital Allocation Framework | Multi-asset inverse volatility weighting, fractional Kelly criterion with safety constraints, asset-tiered concentration limits, Chandelier trailing stops, and multi-tier circuit breakers | M8 | Explorer 3 (R3) |
+| F43 | Modular System Architecture Specification | 5-component modular architecture (Ingestion, Alpha Engine, Risk Gating, Web3.py Router, Telemetry), exact Pydantic V2 schemas, and integration with existing repository contracts | M8 | Explorer 3 (R4) |
+| F44 | Phased Implementation Roadmap & Verification Plan | 4-phase delivery plan (M-Quant-1 to M-Quant-4) with concrete unit, simulation, and on-chain dry-run test criteria | M8 | Explorer 3 (R4) |
 
 ---
 
@@ -111,6 +117,7 @@ Every feature identified during Phase 0 Survey is cataloged below with its desig
 | M4 | Crypto Deliberation & Remote Agent | F19–F23: BTC/ETH/SOL ingestion, ATR sizing, agy --remote-agent bridge, Jev decision scoring | M1, M2 | DONE (Full CCXT/FNG/DeFiLlama feeds, ATR-14 sizer, remote bridge, Jev scorer passed; Gate APPROVED) |
 | M5 | Final Milestone: E2E Verification & Hardening | F24–F26: Pass 100% E2E test suite (Tiers 1-4), paper trading backtest, Tier 5 adversarial hardening | E2E, M1, M2, M3, M4 | DONE (200/200 E2E, 1420/1420 Core, Unit & Adversarial suites passed; Gate APPROVED) |
 | M6 | Live Terminal & MetaMask Bridge Deployment | F27–F30: Live terminal on port 8899, token auth gate, telemetry WS, reasoning SSE, bridge routes, and verification harness | M1–M5 | DONE (477+ tests passing across 6 suites; Gate APPROVED) |
+| M8 | Quantitative Strategy & Architecture Specification | F39–F44: Complete architecture deliverable synthesizing R1 Strategy, R2 Feasibility, R3 Risk, and R4 Architecture & Roadmap | Phase 0 Survey (Complete) | DONE (docs/QUANTITATIVE_STRATEGY_ARCHITECTURE.md published) |
 
 ---
 
@@ -180,6 +187,9 @@ c:\Users\AmirM\Documents\Agentic trading\
 ├── TEST_READY.md               # E2E Test Suite readiness declaration
 ├── DEAD_ENDS.md                # Oscillation guard & dead end tracking
 ├── GATE_STATUS.md              # Gate verdict tracking per iteration
+│
+├── docs/                       # Quantitative Strategy & Architecture Specifications (M8)
+│   └── QUANTITATIVE_STRATEGY_ARCHITECTURE.md # Master Arbitrum Uniswap v3 Strategy, Feasibility & Risk Spec
 │
 ├── core/                       # Core TradingAgents integration (M1)
 │   ├── agents/                 # 10 specialized agent roles across 4 tiers

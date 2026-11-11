@@ -9,6 +9,11 @@ import time
 from dataclasses import dataclass
 from typing import Any, Dict, List, Literal, Optional, Tuple
 
+from execution.contracts.quant_architecture import (
+    ARBITRUM_POOLS,
+    ARBITRUM_TOKENS,
+    CANONICAL_ARBITRUM_QUOTER_V2,
+)
 from tests.e2e.contracts import (
     ChainExecutionConfig,
     SwapExecutionResult,
@@ -22,6 +27,7 @@ class DEXRouterConfig:
     chain_name: str
     uniswap_router: str
     uniswap_quoter: Optional[str] = None
+    uniswap_quoter_v2: Optional[str] = None
     aerodrome_router: Optional[str] = None
     wrapped_native: str = "0x82aF49447D8a07e3bd95BD0d56f35241523fBab1"
     native_symbol: str = "ETH"
@@ -34,6 +40,7 @@ KNOWN_DEX_CONFIGS: Dict[int, DEXRouterConfig] = {
         chain_name="Arbitrum One",
         uniswap_router="0x68b3465833fb72A70ecDF485E0e4C7bD8665Fc45",
         uniswap_quoter="0x61fFE014bA136170505655d03170F09287640F16",
+        uniswap_quoter_v2=CANONICAL_ARBITRUM_QUOTER_V2,
         aerodrome_router=None,
         wrapped_native="0x82aF49447D8a07e3bd95BD0d56f35241523fBab1",
         native_symbol="ETH",
@@ -88,9 +95,90 @@ class MultiDEXRouter:
         return cfg.uniswap_router
 
     def get_quoter_address(self, chain_id: int) -> Optional[str]:
-        """Resolve quoter contract address for off-chain quote calculations."""
+        """Resolve legacy quoter contract address for off-chain quote calculations."""
         cfg = self.get_config(chain_id)
         return cfg.uniswap_quoter
+
+    def get_quoter_v2_address(self, chain_id: int) -> Optional[str]:
+        """Resolve canonical deployed QuoterV2 contract address."""
+        cfg = self.get_config(chain_id)
+        return cfg.uniswap_quoter_v2 or cfg.uniswap_quoter
+
+    @staticmethod
+    def encode_v3_path(token_addresses: List[str], fees: List[int]) -> bytes:
+        """
+        Encode Uniswap v3 SwapRouter02 packed multi-hop path:
+        address(token_0) + uint24(fee_0) + address(token_1) + ... + address(token_n).
+        """
+        if len(token_addresses) < 2:
+            raise ValueError("Path must contain at least 2 token addresses.")
+        if len(fees) != len(token_addresses) - 1:
+            raise ValueError("Fees list length must be len(token_addresses) - 1.")
+
+        encoded = bytearray()
+        for idx, addr in enumerate(token_addresses):
+            clean = addr[2:] if addr.lower().startswith("0x") else addr
+            if len(clean) != 40:
+                raise ValueError(f"Invalid EVM address in path: {addr}")
+            encoded.extend(bytes.fromhex(clean))
+            if idx < len(fees):
+                encoded.extend(int(fees[idx]).to_bytes(3, byteorder="big"))
+        return bytes(encoded)
+
+    @staticmethod
+    def resolve_arbitrum_route(
+        symbol_in: str,
+        symbol_out: str,
+        trade_notional_usd: float = 0.0,
+    ) -> Tuple[List[str], List[str], List[int]]:
+        """
+        Resolve optimal Arbitrum One Uniswap v3 token route & fee tiers.
+        Mandatory multi-hop through WETH for LINK <-> USDC and cross-altcoin pairs
+        to prevent thin direct-pool slippage spikes (R2 microstructure rule).
+        Returns: (route_symbols, route_addresses, fee_tiers)
+        """
+        s_in = symbol_in.strip().upper()
+        s_out = symbol_out.strip().upper()
+        if s_in == s_out:
+            raise ValueError(f"Cannot route self-swap for {s_in}")
+        if s_in not in ARBITRUM_TOKENS or s_out not in ARBITRUM_TOKENS:
+            raise ValueError(f"Unsupported token symbol in pair ({s_in}, {s_out})")
+
+        # LINK <-> USDC must always route via WETH (70x-200x lower slippage than direct pool)
+        if {s_in, s_out} == {"LINK", "USDC"}:
+            route_syms = [s_in, "WETH", s_out]
+        # ARB <-> USDC > $5,000 benefits from routing via deep ARB/WETH (500) + WETH/USDC (500)
+        elif {s_in, s_out} == {"ARB", "USDC"} and trade_notional_usd > 5000.0:
+            route_syms = [s_in, "WETH", s_out]
+        elif (s_in, s_out) in ARBITRUM_POOLS:
+            route_syms = [s_in, s_out]
+        else:
+            # Cross pairs (e.g. WBTC <-> LINK, WBTC <-> ARB, ARB <-> LINK) route via WETH hub
+            route_syms = [s_in, "WETH", s_out]
+
+        route_addrs = [ARBITRUM_TOKENS[sym].address for sym in route_syms]
+        fee_tiers = [ARBITRUM_POOLS[(route_syms[i], route_syms[i + 1])] for i in range(len(route_syms) - 1)]
+        return route_syms, route_addrs, fee_tiers
+
+    def build_exact_input_multi_hop_params(
+        self,
+        route_addresses: List[str],
+        fees: List[int],
+        recipient: str,
+        amount_in_wei: int,
+        amount_out_min_wei: int,
+    ) -> Dict[str, Any]:
+        """
+        Build Uniswap v3 SwapRouter02 ExactInputParams struct parameters:
+        (path, recipient, amountIn, amountOutMinimum) — note SwapRouter02 omits deadline in struct.
+        """
+        packed_path = self.encode_v3_path(route_addresses, fees)
+        return {
+            "path": packed_path,
+            "recipient": recipient,
+            "amountIn": int(amount_in_wei),
+            "amountOutMinimum": int(amount_out_min_wei),
+        }
 
     def build_exact_input_single_params(
         self,
